@@ -1,0 +1,30 @@
+# ── Dependencies ─────────────────────────────────────────────
+node_modules/
+
+# ── Build output ─────────────────────────────────────────────
+app/dist/
+
+# ── Local secrets & settings ─────────────────────────────────
+# local.settings.json contains real connection strings and keys locally.
+# The committed version is local.settings.json.example (safe placeholder values).
+api/local.settings.json
+.env
+.env.*
+*.env
+
+# ── Azure Function deployment artifacts ───────────────────────
+funclogs/
+*.zip
+
+# ── OS / Editor ───────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+*.suo
+*.user
+.idea/
+.vscode/settings.json
+
+# ── Logs ─────────────────────────────────────────────────────
+*.log
+npm-debug.log*

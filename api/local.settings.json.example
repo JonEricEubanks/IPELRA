@@ -1,0 +1,20 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "WEBSITE_NODE_DEFAULT_VERSION": "~20",
+
+    "COSMOS_CONNECTION_STRING": "AccountEndpoint=https://<your-account>.documents.azure.com:443/;AccountKey=<key>;",
+    "JWT_SECRET": "replace-with-32-plus-character-random-string",
+    "ACS_CONNECTION_STRING": "endpoint=https://<your-acs>.communication.azure.com/;accesskey=<key>",
+    "ACS_SENDER_ADDRESS": "DoNotReply@<your-managed-domain>.azurecomm.net",
+
+    "ADMIN_EMAILS": "you@example.com",
+    "COMPLETION_THRESHOLD_POINTS": "1000",
+    "PASSPORT_LIVE": "true",
+    "PASSPORT_LOCK_UTC": "2026-10-11T00:00:00Z",
+    "EXPORT_SECRET": "replace-with-long-random-string",
+    "CONFERENCE_YEAR": "2026"
+  }
+}

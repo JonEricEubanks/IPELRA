@@ -1,0 +1,24 @@
+{
+  "name": "ipelra-passport-api",
+  "version": "1.0.0",
+  "description": "IPELRA Conference Passport — Azure Functions API (Node.js v4)",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "func start",
+    "build": "echo \"No build step — plain JS\"",
+    "test": "node --test src/**/*.test.js"
+  },
+  "dependencies": {
+    "@azure/communication-email": "^1.0.0",
+    "@azure/cosmos": "^4.1.1",
+    "@azure/functions": "^4.5.1",
+    "jsonwebtoken": "^9.0.2",
+    "fast-levenshtein": "^3.0.0",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

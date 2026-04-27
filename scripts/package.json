@@ -1,0 +1,9 @@
+{
+  "name": "ipelra-scripts",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Dev/admin scripts for IPELRA Conference Passport",
+  "dependencies": {
+    "@azure/cosmos": "^4.1.1"
+  }
+}
