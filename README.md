@@ -2,25 +2,37 @@
 
 **Client:** IPELRA  
 **Developer:** MGP Technology Solutions  
-**Conference:** October 5–7, 2026 — Eagle Ridge Resort, Galena IL  
-**Attendees:** ~160
+**Conference:** October 5–10, 2026 — Eagle Ridge Resort, Galena IL  
+**Attendees:** ~160  
+**Live URL:** https://gentle-flower-01d10d50f.7.azurestaticapps.net
 
 A mobile-friendly web app where conference attendees visit sponsor tables, answer a prompt question at each stop, earn points, and complete their passport for prize entry. Admins manage sponsors, monitor live metrics, and export a raffle list.
+
+### Deployed Azure Resources
+
+| Resource | Name | Resource Group |
+|---|---|---|
+| Static Web App | `swa-ipelra-passport` | `conferenceapp` |
+| Function App | `func-ipelra-xokxr7c5kfc64` | `conferenceapp` |
+| Cosmos DB | `cosmos-ipelra-xokxr7c5kfc64` | `conferenceapp` |
+| ACS Email | `acs-ipelra` | `conferenceapp` |
+| App Insights | `appi-ipelra` | `conferenceapp` |
 
 ---
 
 ## Table of Contents
 
 1. [Architecture](#architecture)
-2. [Prerequisites](#prerequisites)
-3. [Local Development](#local-development)
-4. [Environment Variables](#environment-variables)
-5. [Deployment](#deployment)
-6. [Post-Deploy Steps](#post-deploy-steps)
-7. [Pre-Conference Checklist](#pre-conference-checklist)
-8. [Day-Of Runbook](#day-of-runbook)
-9. [Troubleshooting](#troubleshooting)
-10. [Cost Reference](#cost-reference)
+2. [App Routes](#app-routes)
+3. [Prerequisites](#prerequisites)
+4. [Local Development](#local-development)
+5. [Environment Variables](#environment-variables)
+6. [Deployment](#deployment)
+7. [Post-Deploy Steps](#post-deploy-steps)
+8. [Pre-Conference Checklist](#pre-conference-checklist)
+9. [Day-Of Runbook](#day-of-runbook)
+10. [Troubleshooting](#troubleshooting)
+11. [Cost Reference](#cost-reference)
 
 ---
 
@@ -35,7 +47,7 @@ Attendee (mobile browser)
               └─→ Application Insights    ← monitoring
 
 Admin (any browser, /admin)
-  └─→ Same SWA  →  Google OAuth (SWA built-in)
+  └─→ Same SWA  →  magic link email auth
         └─→ Same Functions (/api/admin/*)
 ```
 
@@ -44,9 +56,44 @@ Admin (any browser, /admin)
 | Static Web App | Free | $0.00 |
 | Functions | Consumption Y1 | ~$0.00 (under free grant) |
 | Cosmos DB | Serverless | ~$0.01 |
-| ACS Email | PAYG | ~$0.04 total (conference week) |
+| ACS Email | PAYG | ~$1–2 total (conference week) |
 | Application Insights | Free 5GB | $0.00 |
-| **Total (Apr 27 → Oct 10)** | | **~$0.31** |
+| **Total through Oct 10, 2026** | | **~$2.00** |
+
+---
+
+## App Routes
+
+### Attendee
+
+| Path | Description |
+|---|---|
+| `/login` | Enter email → receive magic link |
+| `/verify` | Magic link redirect / token exchange |
+| `/onboarding` | 3-slide first-visit intro |
+| `/` | Passport home — sponsor grid + progress bar |
+| `/sponsor/:id` | Sponsor stop — prompt + check-in |
+| `/completed` | Passport completion celebration |
+| `/rankings` | Leaderboard — top attendees by points |
+| `/help` | FAQ accordion |
+| `/link-expired` | Shown when magic link has expired |
+| `/offline` | Shown when device is offline |
+
+### Admin
+
+| Path | Description |
+|---|---|
+| `/admin/login` | Admin magic link request |
+| `/admin/verify` | Admin magic link exchange |
+| `/admin/dashboard` | Live metrics + charts (30s auto-refresh) |
+| `/admin/sponsors` | Sponsor list — add/edit/toggle active |
+| `/admin/sponsors/:id` | Edit sponsor — name, logo, tier, question, answer |
+| `/admin/attendees` | Search attendees, view check-ins, manual credit |
+| `/admin/flagged` | Attendees with repeated wrong answers |
+| `/admin/export` | Download raffle CSV |
+| `/admin/readiness` | Pre-flight checklist for go-live |
+| `/admin/settings` | App settings (threshold, lock time, live toggle) |
+| `/admin/reset` | Emergency data reset (dev/test only) |
 
 ---
 
@@ -138,12 +185,34 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ## Deployment
 
-### First Deploy
+### Redeploy (existing infrastructure is already live)
+
+**API (backend changes):**
+```powershell
+cd api
+func azure functionapp publish func-ipelra-xokxr7c5kfc64 --javascript
+```
+
+**Frontend (UI changes):**
+```powershell
+cd app
+npx vite build
+npx @azure/static-web-apps-cli deploy "dist" `
+  --deployment-token "<SWA_DEPLOY_TOKEN>" `
+  --env production
+```
+
+Retrieve the deploy token:
+```powershell
+az staticwebapp secrets list --name swa-ipelra-passport --resource-group conferenceapp
+```
+
+### First Deploy (new environment)
 
 #### Step 1 — Prepare secrets
 
 ```powershell
-$JWT_SECRET   = node -e "process.stdout.write(require('crypto').randomBytes(48).toString('hex'))"
+$JWT_SECRET    = node -e "process.stdout.write(require('crypto').randomBytes(48).toString('hex'))"
 $EXPORT_SECRET = node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
@@ -159,16 +228,14 @@ az deployment group create `
                exportSecret="$EXPORT_SECRET"
 ```
 
-This creates and configures all Azure resources. Note the outputs:
-- `staticWebAppUrl` — your SWA URL (e.g. `https://brave-ocean-abc.azurestaticapps.net`)
-- `functionAppUrl` — your Functions URL (e.g. `https://func-ipelra-abc.azurewebsites.net`)
+Outputs: `staticWebAppUrl` and `functionAppUrl` — note both for the next steps.
 
 #### Step 3 — Deploy the API
 
 ```powershell
 cd api
 npm install
-func azure functionapp publish func-ipelra-<suffix>
+func azure functionapp publish func-ipelra-xokxr7c5kfc64 --javascript
 ```
 
 #### Step 4 — Build and deploy the React app
@@ -176,24 +243,10 @@ func azure functionapp publish func-ipelra-<suffix>
 ```powershell
 cd app
 npm install
-# Set VITE_API_BASE_URL to your Function App URL for the build
-$env:VITE_API_BASE_URL = "https://func-ipelra-<suffix>.azurewebsites.net"
 npm run build
-```
-
-Deploy the `app/dist/` folder to SWA:
-```powershell
-az staticwebapp deploy `
-  --name swa-ipelra-<suffix> `
-  --resource-group conferenceapp `
-  --source app/dist `
-  --no-use-keyfile
-```
-
-Or use the [SWA CLI](https://azure.github.io/static-web-apps-cli/):
-```powershell
-npm install -g @azure/static-web-apps-cli
-swa deploy app/dist --deployment-token <YOUR_SWA_DEPLOY_TOKEN>
+npx @azure/static-web-apps-cli deploy "dist" `
+  --deployment-token "<SWA_DEPLOY_TOKEN>" `
+  --env production
 ```
 
 ---
@@ -202,46 +255,34 @@ swa deploy app/dist --deployment-token <YOUR_SWA_DEPLOY_TOKEN>
 
 Complete these **after the first successful deploy**. All are required before going live.
 
-### 1 — Add VITE_API_BASE_URL to SWA environment settings
+### 1 — Configure ACS Email sender domain
 
-```powershell
-az staticwebapp appsettings set `
-  --name swa-ipelra-<suffix> `
-  --resource-group conferenceapp `
-  --setting-names "VITE_API_BASE_URL=https://func-ipelra-<suffix>.azurewebsites.net"
-```
-
-Then rebuild and redeploy the app (the env var is baked into the bundle at build time).
-
-### 2 — Configure ACS Email sender domain
-
-1. In Azure Portal → your ACS resource → Email → Domains
+1. In Azure Portal → ACS resource → Email → Domains
 2. Add your custom domain (e.g. `mgpsolutions.com`)
 3. Add the SPF, DKIM, and DMARC DNS records to your DNS registrar
 4. Click **Verify** in the portal
 5. Update `ACS_SENDER_ADDRESS` in Function App settings to use the verified domain
-6. Send a test magic link via the app and confirm delivery + no spam folder
+6. Send a test magic link and confirm delivery + not in spam folder
 
-### 4 — Set CORS on Function App
+### 2 — Set CORS on Function App
 
-Allow the SWA origin:
 ```powershell
 az functionapp cors add `
-  --name func-ipelra-<suffix> `
+  --name func-ipelra-xokxr7c5kfc64 `
   --resource-group conferenceapp `
-  --allowed-origins "https://<your-swa-url>"
+  --allowed-origins "https://gentle-flower-01d10d50f.7.azurestaticapps.net"
 ```
 
-### 5 — Verify admin login
+### 3 — Verify admin login
 
-1. Navigate to `https://<your-swa-url>/admin/login`
-2. Enter an email address that is listed in `ADMIN_EMAILS`
+1. Navigate to `https://gentle-flower-01d10d50f.7.azurestaticapps.net/admin/login`
+2. Enter an email listed in `ADMIN_EMAILS`
 3. Check email for the magic link — click it
 4. Should land on the Admin Dashboard
 
-### 6 — Test magic link flow
+### 4 — Test attendee magic link flow
 
-1. Go to `https://<your-swa-url>/login`
+1. Go to `https://gentle-flower-01d10d50f.7.azurestaticapps.net/login`
 2. Enter a real email address
 3. Confirm you receive the magic link email
 4. Click the link — should land on onboarding
@@ -254,24 +295,23 @@ Run this checklist **at least 48 hours before October 5, 2026**.
 
 ### Infrastructure
 
-- [ ] All Bicep resources deployed and running
-- [ ] Function App responding: `curl https://func-ipelra-<suffix>.azurewebsites.net/api/admin/readiness`
+- [ ] Function App responding: `GET https://func-ipelra-xokxr7c5kfc64.azurewebsites.net/api/admin/readiness`
 - [ ] Admin dashboard loads at `/admin`
 - [ ] Magic link email arrives in under 2 minutes (test with personal email)
-- [ ] Magic link email not in spam (check SPF/DKIM if so)
+- [ ] Magic link email not in spam (check SPF/DKIM/DMARC if so)
 
 ### Sponsors
 
 - [ ] All sponsor records entered in admin portal (`/admin/sponsors`)
 - [ ] All sponsor questions reviewed and finalized with IPELRA
 - [ ] All sponsor records set `isActive = true`
-- [ ] `COMPLETION_THRESHOLD_POINTS` set to final value (confirm with IPELRA: G3)
+- [ ] `COMPLETION_THRESHOLD_POINTS` set to final value (confirm with IPELRA)
   - Reference: 13 sponsors × avg ~115 pts/stop × 80% = ~1,195 pts
 - [ ] Test each sponsor question answer in admin edit form (fuzzy tester)
 
 ### Access
 
-- [ ] Admin email addresses confirmed with Angie Miller (G4)
+- [ ] Admin email addresses confirmed with Angie Miller
 - [ ] All admin emails added to `ADMIN_EMAILS` env var
 - [ ] All admins have tested logging in
 - [ ] Emergency export secret tested: `GET /api/admin/export` with `x-export-secret` header
@@ -286,7 +326,7 @@ Run this checklist **at least 48 hours before October 5, 2026**.
 
 ### Monitoring
 
-- [ ] Application Insights live metrics tab open in Azure Portal
+- [ ] Application Insights live metrics open in Azure Portal
 - [ ] Admin dashboard auto-refresh verified (30s)
 
 ---
@@ -295,10 +335,10 @@ Run this checklist **at least 48 hours before October 5, 2026**.
 
 ### Morning of October 5
 
-1. **Open the passport** (remove "coming soon" state):
+1. **Open the passport:**
    ```powershell
    az functionapp config appsettings set `
-     --name func-ipelra-<suffix> `
+     --name func-ipelra-xokxr7c5kfc64 `
      --resource-group conferenceapp `
      --settings "PASSPORT_LIVE=true"
    ```
@@ -309,28 +349,26 @@ Run this checklist **at least 48 hours before October 5, 2026**.
 
 ### During the Conference
 
-- **Attendee can't check in:** Go to `/admin/attendees`, search by email, use **Manual Credit** button. Note the reason.
-- **Sponsor question too hard / too easy:** Edit in `/admin/sponsors` and adjust the answer keyword. Re-test with the fuzzy tester.
-- **Completion threshold wrong:** Update `COMPLETION_THRESHOLD_POINTS` env var. Takes effect immediately — no redeploy needed.
+- **Attendee can't check in:** Go to `/admin/attendees`, search by email, use **Manual Credit** button.
+- **Sponsor question too hard / too easy:** Edit in `/admin/sponsors`, adjust the answer keyword, re-test with the fuzzy tester.
+- **Completion threshold needs adjusting:**
   ```powershell
   az functionapp config appsettings set `
-    --name func-ipelra-<suffix> `
+    --name func-ipelra-xokxr7c5kfc64 `
     --resource-group conferenceapp `
     --settings "COMPLETION_THRESHOLD_POINTS=900"
   ```
+  Takes effect immediately — no redeploy needed.
 - **Suspicious activity / cheating:** Check `/admin/flagged` for repeated wrong answers.
 
 ### End of Conference (October 10)
 
-1. **Export raffle list:**
-   - Go to `/admin/export` → Download CSV
-   - CSV includes: email, firstName, lastName, totalPoints, completedAt
+1. **Export raffle list:** Go to `/admin/export` → Download CSV  
+   CSV includes: email, firstName, lastName, totalPoints, completedAt
 
-2. **Close the passport** at 7pm CT (auto-locks at UTC midnight Oct 11 if `PASSPORT_LOCK_UTC` is set correctly — no action needed if configured)
+2. **Close the passport:** Auto-locks at UTC midnight Oct 11 if `PASSPORT_LOCK_UTC` is set correctly — no action needed if configured.
 
-3. **Backup confirmation:**
-   - Download CSV one more time
-   - Save to IPELRA shared drive
+3. **Backup confirmation:** Download CSV one more time and save to IPELRA shared drive.
 
 ---
 
@@ -338,38 +376,38 @@ Run this checklist **at least 48 hours before October 5, 2026**.
 
 ### Magic link email not arriving
 
-1. Check ACS email logs in Azure Portal → Communication Services → Email → Message Status
+1. Check ACS email logs: Azure Portal → Communication Services → Email → Message Status
 2. Verify `ACS_SENDER_ADDRESS` matches the verified domain exactly
 3. Check attendee spam folder
 4. Confirm SPF/DKIM records are published and verified in ACS portal
 
 ### Admin login not working (401 / link invalid)
 
-1. Confirm the email used is listed exactly in `ADMIN_EMAILS` on the Function App (case-insensitive, comma-separated)
-2. Check that `JWT_SECRET` is set correctly — a mismatch causes all tokens to fail validation
+1. Confirm the email is listed exactly in `ADMIN_EMAILS` on the Function App (case-insensitive, comma-separated)
+2. Check `JWT_SECRET` is set — a mismatch causes all tokens to fail validation
 3. Magic links expire in 15 minutes — request a fresh one if the link is old
-4. Check Function App logs in Azure Portal → Function App → Monitor for detailed error messages
+4. Check Function App logs: Azure Portal → Function App → Monitor
 
-### Check-in returns wrong answer even though answer is correct
+### Check-in returns "wrong answer" even though answer seems correct
 
 1. Go to `/admin/sponsors` → edit the sponsor
-2. Review the **Answer keyword** — the fuzzy matcher looks for this keyword as a substring or close match
-3. Use the live fuzzy tester in the edit form to test the exact answer the attendee typed
-4. Adjust keyword to be shorter/simpler if needed (e.g. `"municipal"` instead of `"municipal technology"`)
+2. Review the **Answer keyword** — the fuzzy matcher looks for this as a substring or close match
+3. Use the live fuzzy tester in the edit form to test the exact answer typed
+4. Shorten/simplify the keyword if needed (e.g. `"municipal"` instead of `"municipal technology"`)
 
-### Function App cold start causing slow first request
+### Function App cold start — slow first request
 
-The warmup timer runs every 5 minutes on Oct 5–7, 6AM–6PM CT. If a cold start still occurs outside those hours, the first request will take ~3–5 seconds. Subsequent requests will be fast.
+The warmup timer runs every 5 minutes on Oct 5–10, 6AM–6PM CT. Outside those hours the first request may take ~3–5 seconds. Subsequent requests will be fast.
 
 ### Attendee lost their magic link
 
-Go to `/login` and enter their email again — a fresh link will be sent. The previous link is automatically invalidated.
+Go to `/login` and enter the email again — a fresh link will be sent. The old link is automatically invalidated.
 
 ### Points not updating after check-in
 
-1. Hard-refresh the Passport Home page (`Pull to refresh` on mobile)
-2. If still wrong, check `/admin/attendees` for the attendee — their check-in history shows the actual stored points
-3. If check-in is missing, use Manual Credit
+1. Pull-to-refresh on the Passport Home page
+2. If still wrong, check `/admin/attendees` → attendee's check-in history shows actual stored points
+3. If check-in is missing entirely, use Manual Credit
 
 ---
 
@@ -377,10 +415,10 @@ Go to `/login` and enter their email again — a fresh link will be sent. The pr
 
 | Period | Cost |
 |---|---|
-| Now → Oct 4 (dev, ~5 months) | ~$0.10 |
-| Conference week (Oct 5–10) | ~$0.20 |
+| Apr 28 → Oct 4 (dev/idle, ~5 months) | ~$0.10 |
+| Conference week (Oct 5–10) | ~$1–2 |
 | Dev/test magic link emails (~50 emails) | ~$0.01 |
-| **Total through Oct 10, 2026** | **~$0.31** |
+| **Total through Oct 10, 2026** | **~$2.00** |
 | Idle after conference | ~$0.01/month |
 
 All compute is consumption/serverless. No cost when idle.
@@ -392,10 +430,10 @@ All compute is consumption/serverless. No cost when idle.
 | # | Item | Owner | Status |
 |---|---|---|---|
 | G1 | ACS verified sender domain — add SPF, DKIM, DMARC DNS records | MGP | ⬜ Open |
-| G2 | Google OAuth Client ID — create in Google Cloud Console after SWA URL is known | MGP | ⬜ Open |
-| G3 | Final sponsor count + tier mix → set `COMPLETION_THRESHOLD_POINTS` | IPELRA / Angie | ⬜ Open |
-| G4 | Exact admin Google email addresses for `ADMIN_EMAILS` | Angie Miller | ⬜ Open |
+| G2 | Final sponsor count + tier mix → set `COMPLETION_THRESHOLD_POINTS` | IPELRA / Angie | ⬜ Open |
+| G3 | Exact admin email addresses for `ADMIN_EMAILS` env var | Angie Miller | ⬜ Open |
+| G4 | Help page Wi-Fi network name — confirm with venue | IPELRA | ⬜ Open |
 
 ---
 
-*README last updated: 2026-04-27*
+*README last updated: 2026-04-28*
