@@ -4,6 +4,7 @@
  */
 
 import { NavLink } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import {
   LayoutDashboard, CheckSquare, Building2, Users,
   Flag, Upload, Settings, RefreshCw,
@@ -23,6 +24,13 @@ const NAV_ITEMS = [
 export default function AdminLayout({ children }) {
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--color-bg)', display: 'flex', flexDirection: 'column' }}>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: { borderRadius: 12, fontSize: 14, fontWeight: 600 },
+          success: { iconTheme: { primary: '#1d3461', secondary: '#fff' } },
+        }}
+      />
       {/* Top bar */}
       <header style={{
         background: 'var(--color-primary)', color: '#fff',
@@ -30,7 +38,10 @@ export default function AdminLayout({ children }) {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         flexShrink: 0,
       }}>
-        <span style={{ fontWeight: 800, fontSize: 17, display: 'flex', alignItems: 'center', gap: 6 }}><Settings size={16} /> IPELRA Admin</span>
+        <span style={{ fontWeight: 800, fontSize: 17, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <img src="/logo.png" alt="IPELRA" style={{ width: 28, height: 28, objectFit: 'contain' }} />
+            Admin Portal
+          </span>
         <a
           href="/.auth/logout"
           style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, textDecoration: 'none' }}

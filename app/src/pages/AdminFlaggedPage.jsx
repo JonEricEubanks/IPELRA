@@ -7,16 +7,16 @@ import { useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { adminGetFlagged } from '../api';
 import { PartyPopper, Building2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function AdminFlaggedPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     adminGetFlagged()
       .then(d => setData(d))
-      .catch(() => setError('Failed to load flagged entries.'))
+      .catch(() => toast.error('Failed to load flagged entries.'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -29,8 +29,6 @@ export default function AdminFlaggedPage() {
         <h1 style={{ fontSize: 22, fontWeight: 800 }}>Flagged Attempts</h1>
         {!loading && <span style={{ color: 'var(--color-text-2)', fontSize: 14 }}>{total} total</span>}
       </div>
-
-      {error && <div className="form-error">{error}</div>}
 
       {loading && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>

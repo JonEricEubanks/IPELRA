@@ -2,7 +2,7 @@
  * auth.js — JWT + magic link token helpers
  *
  * Attendee tokens: custom JWT signed with JWT_SECRET, exp Oct 10 2026.
- * Admin validation: x-ms-client-principal header (SWA Google OAuth).
+ * Admin tokens: same JWT_SECRET, magic-link flow (email → 15 min token → 8 hr session).
  */
 
 import jwt from 'jsonwebtoken';

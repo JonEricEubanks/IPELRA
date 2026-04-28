@@ -1,5 +1,5 @@
 /**
- * AdminSponsorEditPage.jsx â€” /admin/sponsors/new  and  /admin/sponsors/:id
+ * AdminSponsorEditPage.jsx — /admin/sponsors/new  and  /admin/sponsors/:id
  * Create or edit a sponsor record using the correct data model.
  * Includes a live fuzzy-match tester (mirrors server logic).
  */
@@ -42,6 +42,8 @@ const EMPTY = {
   name:               '',
   tier:               'gold',
   tagline:            '',
+  description:        '',
+  website:            '',
   logoUrl:            '',
   pointValue:         100,
   promptQuestion:     '',
@@ -68,7 +70,7 @@ export default function AdminSponsorEditPage() {
     adminGetSponsors()
       .then(d => {
         const found = (d.sponsors ?? []).find(s => s.id === id);
-        if (found) setForm({ ...EMPTY, ...found });
+        if (found) setForm({ ...EMPTY, ...found, description: found.description ?? '', website: found.website ?? '' });
         else setError('Sponsor not found.');
       })
       .catch(() => setError('Failed to load sponsor.'))
@@ -100,6 +102,8 @@ export default function AdminSponsorEditPage() {
         ...form,
         name:               form.name.trim(),
         tagline:            form.tagline.trim(),
+        description:        form.description.trim() || null,
+        website:            form.website.trim() || null,
         logoUrl:            form.logoUrl.trim() || null,
         promptQuestion:     form.promptQuestion.trim(),
         promptAnswerKeyword: form.promptAnswerKeyword.trim(),
@@ -130,7 +134,7 @@ export default function AdminSponsorEditPage() {
   return (
     <AdminLayout>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-5)' }}>
-        <button className="btn btn-ghost btn-sm" onClick={() => navigate('/admin/sponsors')}>â† Back</button>
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate('/admin/sponsors')}>← Back</button>
         <h1 style={{ fontSize: 22, fontWeight: 800 }}>{isNew ? 'New Sponsor' : 'Edit Sponsor'}</h1>
       </div>
 
@@ -165,13 +169,38 @@ export default function AdminSponsorEditPage() {
             />
           </div>
 
+          <div className="form-group">
+            <label className="form-label">Company Description</label>
+            <textarea
+              className="form-input"
+              rows={4}
+              placeholder="Full company description shown in the bottom sheet when attendees tap the sponsor card."
+              value={form.description}
+              onChange={e => set('description', e.target.value)}
+              style={{ resize: 'vertical', minHeight: 96 }}
+            />
+            <div className="form-hint">Displayed when an attendee taps the sponsor card. Supports plain text only.</div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Company Website</label>
+            <input
+              className="form-input"
+              type="url"
+              placeholder="https://example.com"
+              value={form.website}
+              onChange={e => set('website', e.target.value)}
+            />
+            <div className="form-hint">Optional link shown in the sponsor detail sheet.</div>
+          </div>
+
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">Logo URL</label>
               <input
                 className="form-input"
                 type="url"
-                placeholder="/logos/sponsor.png  or  https://â€¦"
+                placeholder="/logos/sponsor.png  or  https://…"
                 value={form.logoUrl}
                 onChange={e => set('logoUrl', e.target.value)}
               />
@@ -254,7 +283,7 @@ export default function AdminSponsorEditPage() {
             <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
               <input
                 className="form-input"
-                placeholder="Type a test answerâ€¦"
+                placeholder="Type a test answer…"
                 value={testAnswer}
                 onChange={e => { setTestAnswer(e.target.value); setTestResult(null); }}
                 style={{ flex: 1 }}
@@ -271,8 +300,8 @@ export default function AdminSponsorEditPage() {
             {testResult && (
               <div className={`fuzzy-result fuzzy-result--${testResult.pass ? 'pass' : 'fail'}`}>
                 {testResult.pass
-                  ? `âœ… Would accept â€” ${testResult.method}`
-                  : `âŒ Would reject â€” distance ${testResult.dist} > max ${testResult.maxDist}`}
+                  ? `✅ Would accept — ${testResult.method}`
+                  : `❌ Would reject — distance ${testResult.dist} > max ${testResult.maxDist}`}
               </div>
             )}
           </div>
@@ -280,7 +309,7 @@ export default function AdminSponsorEditPage() {
 
         <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
           <button className="btn btn-primary btn-lg" type="submit" disabled={saving}>
-            {saving ? 'Savingâ€¦' : isNew ? 'Create Sponsor' : 'Save Changes'}
+            {saving ? 'Saving…' : isNew ? 'Create Sponsor' : 'Save Changes'}
           </button>
           <button className="btn btn-ghost btn-lg" type="button" onClick={() => navigate('/admin/sponsors')}>
             Cancel

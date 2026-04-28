@@ -30,6 +30,7 @@ import {
   getAttendeeById,
   upsertAttendee,
   createCheckin,
+  upsertCheckin,
   getCheckinsByAttendee,
 } from '../lib/cosmos.js';
 import { sendCompletionEmail } from '../lib/email.js';
@@ -123,38 +124,36 @@ app.http('checkin', {
     // ── Count previous failed attempts for this sponsor ───────────────────
     const existingCheckins = await getCheckinsByAttendee(principal.sub);
     const priorAttempts = existingCheckins.filter(c => c.sponsorId === sponsorId);
-    // Note: successful checkin would have set completedStamps above, so all
-    // records here are failed attempts (stored for admin review / flagged answers)
-    const attemptsUsed = priorAttempts.length;
+    // Due to the unique key constraint (/sponsorId per attendee partition), only one
+    // failed-attempt document can exist per attendee+sponsor. Read the stored count.
+    const failedAttemptDoc = priorAttempts.find(c => c.failed === true);
+    const attemptsUsed = failedAttemptDoc?.attemptCount ?? 0;
 
     // ── Fuzzy match ───────────────────────────────────────────────────────
     const correct = isCorrectAnswer(sponsor.promptAnswerKeyword, answer);
     const now = new Date().toISOString();
 
     if (!correct) {
-      // Store the rejected attempt for admin review
-      await createCheckin({
-        id:              uuidv4(),
+      // Upsert the single failed-attempt doc (unique key prevents multiple docs per sponsor)
+      const newAttemptsUsed = attemptsUsed + 1;
+      await upsertCheckin({
+        id:              failedAttemptDoc?.id ?? uuidv4(),
         attendeeId:      attendee.id,
         attendeeEmail:   attendee.email,
         sponsorId:       sponsor.id,
         sponsorName:     sponsor.name,
         pointsAwarded:   0,
         answerSubmitted: answer,
-        attemptCount:    attemptsUsed + 1,
-        rejectedAnswers: [...priorAttempts.map(a => a.answerSubmitted), answer],
+        attemptCount:    newAttemptsUsed,
+        rejectedAnswers: [...(failedAttemptDoc?.rejectedAnswers ?? []), answer],
         timestamp:       now,
         conferenceYear:  Number(process.env.CONFERENCE_YEAR ?? '2026'),
         manualCredit:    false,
         manualCreditNote: null,
         manualCreditBy:  null,
         failed:          true,
-      }).catch(dbErr => {
-        // Cosmos unique key may reject this — that's OK for failed attempts
-        console.warn('[checkin] Could not store failed attempt:', dbErr.message);
       });
 
-      const newAttemptsUsed = attemptsUsed + 1;
       const hint = newAttemptsUsed >= MAX_ATTEMPTS ? generateHint(sponsor.promptAnswerKeyword) : null;
 
       return new Response(
@@ -171,10 +170,13 @@ app.http('checkin', {
     }
 
     // ── Correct answer: record checkin ────────────────────────────────────
-    const rejectedAnswers = priorAttempts.map(a => a.answerSubmitted);
+    // If a failed-attempt doc exists for this sponsor, reuse its id so we
+    // overwrite it in-place — avoids violating the unique key on /sponsorId.
+    const rejectedAnswers = failedAttemptDoc?.rejectedAnswers ?? [];
+    const checkinId = failedAttemptDoc?.id ?? uuidv4();
 
-    await createCheckin({
-      id:              uuidv4(),
+    await upsertCheckin({
+      id:              checkinId,
       attendeeId:      attendee.id,
       attendeeEmail:   attendee.email,
       sponsorId:       sponsor.id,

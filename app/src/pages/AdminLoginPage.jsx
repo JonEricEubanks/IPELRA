@@ -36,8 +36,9 @@ export default function AdminLoginPage() {
         background: 'var(--color-bg)',
       }}>
         <div className="card" style={{ maxWidth: 380, width: '100%' }}>
-          <div style={{ marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' }}>
-            <CheckCircle2 size={48} color="var(--color-success-dark)" />
+          <img src="/logo-text.png" alt="IPELRA" style={{ width: 150, objectFit: 'contain', display: 'block', margin: '0 auto var(--space-4)' }} />
+          <div style={{ width: 56, height: 56, borderRadius: 16, background: 'linear-gradient(135deg, #1a7f5a 0%, #059669 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-3)', boxShadow: '0 4px 16px rgba(26,127,90,0.3)' }}>
+            <CheckCircle2 size={26} color="#ffffff" />
           </div>
           <h2 style={{ fontWeight: 800, marginBottom: 'var(--space-2)' }}>Check Your Email</h2>
           <p style={{ color: 'var(--color-text-2)', marginBottom: 'var(--space-5)' }}>
@@ -63,8 +64,9 @@ export default function AdminLoginPage() {
       background: 'var(--color-bg)',
     }}>
       <div className="card" style={{ maxWidth: 380, width: '100%' }}>
-        <div style={{ marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' }}>
-          <Settings size={48} color="var(--color-primary)" />
+        <img src="/logo-text.png" alt="IPELRA" style={{ width: 150, objectFit: 'contain', display: 'block', margin: '0 auto var(--space-4)' }} />
+        <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--gradient-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-3)' }}>
+          <Settings size={26} color="#ffffff" />
         </div>
         <h2 style={{ fontWeight: 800, marginBottom: 'var(--space-2)' }}>Admin Access</h2>
         <p style={{ color: 'var(--color-text-2)', marginBottom: 'var(--space-5)' }}>

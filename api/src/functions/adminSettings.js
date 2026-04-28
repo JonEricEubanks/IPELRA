@@ -12,7 +12,7 @@
 import { app } from '@azure/functions';
 import { v4 as uuidv4 } from 'uuid';
 import { requireAdminAuth, forbiddenResponse } from '../lib/auth.js';
-import { getAllSponsors, getSponsorById, upsertSponsor } from '../lib/cosmos.js';
+import { getAllSponsors, getSponsorById, upsertSponsor, deleteSponsor } from '../lib/cosmos.js';
 
 const VALID_TIERS = ['gold', 'platinum'];
 
@@ -73,6 +73,8 @@ app.http('adminCreateSponsor', {
       name:                 body.name.trim(),
       logoUrl:              body.logoUrl?.trim() || null,
       tagline:              body.tagline?.trim() || '',
+      description:          body.description?.trim() || null,
+      website:              body.website?.trim() || null,
       tier:                 body.tier,
       pointValue:           body.pointValue != null ? Number(body.pointValue) : pointValues[body.tier],
       promptQuestion:       body.promptQuestion.trim(),
@@ -94,10 +96,10 @@ app.http('adminUpdateSponsor', {
   methods: ['PUT'],
   authLevel: 'anonymous',
   route: 'mgmt/sponsors/{id}',
-  handler: async (request, context) => {
+  handler: async (request) => {
     try { requireAdminAuth(request); } catch (err) { return forbiddenResponse(err.message); }
 
-    const { id } = context.bindingData;
+    const id = request.params.id;
     const existing = await getSponsorById(id);
     if (!existing) {
       return new Response(JSON.stringify({ error: 'Sponsor not found' }), {
@@ -123,6 +125,8 @@ app.http('adminUpdateSponsor', {
       name:                body.name.trim(),
       logoUrl:             body.logoUrl?.trim() || null,
       tagline:             body.tagline?.trim() || '',
+      description:         body.description?.trim() || null,
+      website:             body.website?.trim() || null,
       tier:                body.tier,
       pointValue:          body.pointValue != null ? Number(body.pointValue) : pointValues[body.tier],
       promptQuestion:      body.promptQuestion.trim(),
@@ -143,10 +147,10 @@ app.http('adminPatchSponsor', {
   methods: ['PATCH'],
   authLevel: 'anonymous',
   route: 'mgmt/sponsors/{id}',
-  handler: async (request, context) => {
+  handler: async (request) => {
     try { requireAdminAuth(request); } catch (err) { return forbiddenResponse(err.message); }
 
-    const { id } = context.bindingData;
+    const id = request.params.id;
     const existing = await getSponsorById(id);
     if (!existing) {
       return new Response(JSON.stringify({ error: 'Sponsor not found' }), {
@@ -161,7 +165,7 @@ app.http('adminPatchSponsor', {
 
     // Allow only safe patchable fields
     const allowedPatchFields = [
-      'name', 'logoUrl', 'tagline', 'tier', 'pointValue',
+      'name', 'logoUrl', 'tagline', 'description', 'website', 'tier', 'pointValue',
       'promptQuestion', 'promptAnswerKeyword', 'isActive', 'displayOrder',
     ];
     const doc = { ...existing };
@@ -175,5 +179,26 @@ app.http('adminPatchSponsor', {
     return new Response(JSON.stringify({ sponsor: updated }), {
       status: 200, headers: { 'Content-Type': 'application/json' },
     });
+  },
+});
+
+// DELETE /api/mgmt/sponsors/{id}
+app.http('adminDeleteSponsor', {
+  methods: ['DELETE'],
+  authLevel: 'anonymous',
+  route: 'mgmt/sponsors/{id}',
+  handler: async (request) => {
+    try { requireAdminAuth(request); } catch (err) { return forbiddenResponse(err.message); }
+
+    const id = request.params.id;
+    const existing = await getSponsorById(id);
+    if (!existing) {
+      return new Response(JSON.stringify({ error: 'Sponsor not found' }), {
+        status: 404, headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    await deleteSponsor(id);
+    return new Response(null, { status: 204 });
   },
 });

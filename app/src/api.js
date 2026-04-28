@@ -125,6 +125,12 @@ export async function submitCheckin(sponsorId, answer) {
   return data;
 }
 
+export async function getLeaderboard() {
+  const res = await request('/api/leaderboard');
+  if (!res) return { rankings: [], myRank: null, totalParticipants: 0 };
+  return res.json();
+}
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
 // All admin helpers parse JSON and normalise field names to match page expectations.
 
@@ -178,6 +184,16 @@ export async function adminPatchSponsor(id, patch) {
   return res.json();
 }
 
+export async function adminDeleteSponsor(id) {
+  const res = await request(`/api/mgmt/sponsors/${id}`, { method: 'DELETE' });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    const err = new Error(data.error || 'Failed to delete sponsor');
+    err.status = res.status;
+    throw err;
+  }
+}
+
 export async function adminGetAttendee(email) {
   const res = await request(`/api/mgmt/attendees?email=${encodeURIComponent(email)}`);
   if (res.status === 404) {
@@ -197,6 +213,11 @@ export async function adminGetAttendee(email) {
 
 // Alias — some pages import under this name
 export const adminLookupAttendee = adminGetAttendee;
+
+export async function adminListAttendees(filter = 'all') {
+  const res = await request(`/api/mgmt/attendees/list?filter=${encodeURIComponent(filter)}`);
+  return res.json(); // { attendees: [...], total }
+}
 
 export async function adminManualCredit(attendeeId, attendeeEmail, sponsorId, note) {
   const res = await request('/api/mgmt/attendees/credit', {

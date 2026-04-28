@@ -1,10 +1,11 @@
 /**
  * adminAttendee.js — Attendee lookup + manual credit
  *
- * GET  /api/admin/attendees?email=&year=   — search attendee by email
- * POST /api/admin/attendees/credit         — manually credit a sponsor stop
+ * GET  /api/mgmt/attendees?email=   — search attendee by email
+ * GET  /api/mgmt/attendees/list     — list all attendees (paginated)
+ * POST /api/mgmt/attendees/credit   — manually credit a sponsor stop
  *
- * Auth: SWA Google OAuth
+ * Auth: admin JWT
  */
 
 import { app } from '@azure/functions';
@@ -15,6 +16,7 @@ import {
   getAttendeeById,
   getCheckinsByAttendee,
   getSponsorById,
+  getAllAttendees,
   upsertAttendee,
   createCheckin,
 } from '../lib/cosmos.js';
@@ -136,6 +138,51 @@ app.http('adminManualCredit', {
         pointsAwarded: sponsor.pointValue,
         totalPoints:   newTotalPoints,
         isComplete:    newIsComplete,
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
+  },
+});
+
+// GET /api/mgmt/attendees/list?year=2026
+app.http('adminListAttendees', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'mgmt/attendees/list',
+  handler: async (request) => {
+    try { requireAdminAuth(request); } catch (err) { return forbiddenResponse(err.message); }
+
+    const params = new URL(request.url).searchParams;
+    const year = params.get('year') ?? process.env.CONFERENCE_YEAR ?? new Date().getFullYear();
+    const filter = params.get('filter') ?? 'all'; // all | completed | active | pending
+
+    let attendees = await getAllAttendees(Number(year));
+
+    if (filter === 'completed') {
+      attendees = attendees.filter(a => a.isComplete);
+    } else if (filter === 'active') {
+      attendees = attendees.filter(a => !a.isComplete && (a.totalPoints ?? 0) > 0);
+    } else if (filter === 'pending') {
+      attendees = attendees.filter(a => (a.totalPoints ?? 0) === 0);
+    }
+
+    // Sort by totalPoints desc, then name
+    attendees.sort((a, b) => (b.totalPoints ?? 0) - (a.totalPoints ?? 0));
+
+    return new Response(
+      JSON.stringify({
+        attendees: attendees.map(a => ({
+          id:         a.id,
+          email:      a.email,
+          firstName:  a.firstName,
+          lastName:   a.lastName,
+          points:     a.totalPoints ?? 0,
+          completed:  a.isComplete ?? false,
+          completedAt: a.completedAt ?? null,
+          stampCount: (a.completedStamps ?? []).length,
+          createdAt:  a.createdAt,
+        })),
+        total: attendees.length,
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );

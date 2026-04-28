@@ -132,8 +132,6 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 | Variable | Required | Description |
 |---|---|---|
-| `GOOGLE_CLIENT_ID` | ✅ | Google OAuth client ID (from Google Cloud Console) |
-| `GOOGLE_CLIENT_SECRET` | ✅ | Google OAuth client secret |
 | `VITE_API_BASE_URL` | ✅ | Full URL of deployed Function App (no trailing slash) |
 
 ---
@@ -215,21 +213,7 @@ az staticwebapp appsettings set `
 
 Then rebuild and redeploy the app (the env var is baked into the bundle at build time).
 
-### 2 — Configure Google OAuth
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials
-2. Create an **OAuth 2.0 Client ID** (Web application type)
-3. Add authorized redirect URI: `https://<your-swa-url>/.auth/login/google/callback`
-4. Copy the Client ID and Client Secret
-5. Add to SWA application settings:
-   ```powershell
-   az staticwebapp appsettings set `
-     --name swa-ipelra-<suffix> `
-     --resource-group conferenceapp `
-     --setting-names "GOOGLE_CLIENT_ID=<id>" "GOOGLE_CLIENT_SECRET=<secret>"
-   ```
-
-### 3 — Configure ACS Email sender domain
+### 2 — Configure ACS Email sender domain
 
 1. In Azure Portal → your ACS resource → Email → Domains
 2. Add your custom domain (e.g. `mgpsolutions.com`)
@@ -250,9 +234,9 @@ az functionapp cors add `
 
 ### 5 — Verify admin login
 
-1. Navigate to `https://<your-swa-url>/admin`
-2. Should redirect to Google sign-in
-3. Sign in with an email listed in `ADMIN_EMAILS`
+1. Navigate to `https://<your-swa-url>/admin/login`
+2. Enter an email address that is listed in `ADMIN_EMAILS`
+3. Check email for the magic link — click it
 4. Should land on the Admin Dashboard
 
 ### 6 — Test magic link flow
@@ -359,11 +343,12 @@ Run this checklist **at least 48 hours before October 5, 2026**.
 3. Check attendee spam folder
 4. Confirm SPF/DKIM records are published and verified in ACS portal
 
-### Admin login not working (401 loop)
+### Admin login not working (401 / link invalid)
 
-1. Confirm `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set in SWA application settings
-2. Confirm the redirect URI in Google Cloud Console matches: `https://<swa-url>/.auth/login/google/callback`
-3. Confirm the signed-in email is in `ADMIN_EMAILS` on the Function App
+1. Confirm the email used is listed exactly in `ADMIN_EMAILS` on the Function App (case-insensitive, comma-separated)
+2. Check that `JWT_SECRET` is set correctly — a mismatch causes all tokens to fail validation
+3. Magic links expire in 15 minutes — request a fresh one if the link is old
+4. Check Function App logs in Azure Portal → Function App → Monitor for detailed error messages
 
 ### Check-in returns wrong answer even though answer is correct
 

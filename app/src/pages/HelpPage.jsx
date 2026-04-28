@@ -5,73 +5,109 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, Map, HelpCircle } from 'lucide-react';
+import { ChevronDown, HelpCircle, Star, Users, MessageSquare, Mail, Trophy, ShieldAlert } from 'lucide-react';
+import { BottomNav } from './PassportHomePage';
 
 const FAQ = [
   {
+    icon: Star,
     q: 'How do I earn points?',
-    a: 'Visit each sponsor table, listen to their pitch, then answer their question in the app. Each correct answer earns points.',
+    a: 'Visit each sponsor table, listen to their pitch, then answer their question in the app. Each correct answer earns points toward your passport completion.',
   },
   {
+    icon: Users,
     q: 'Do I have to visit every sponsor?',
-    a: 'No. There is a points threshold to complete your passport and enter the prize drawing. Once you hit it, you\'re in!',
+    a: 'No. There is a points threshold to complete your passport and enter the prize drawing. Once you hit it, you\'re in — keep going to earn bonus entries!',
   },
   {
+    icon: MessageSquare,
     q: 'My answer seems right but won\'t accept. What\'s wrong?',
     a: 'The system matches close answers, but try rephrasing. After 3 attempts a hint will appear. Ask the sponsor for help — that\'s the whole point!',
   },
   {
+    icon: Mail,
     q: 'I lost my magic link email. Can I get a new one?',
     a: 'Yes! Go to the login page and enter your email again. A fresh link will arrive in about a minute. Check your spam folder if you don\'t see it.',
   },
   {
+    icon: Trophy,
     q: 'Where do I go when my passport is complete?',
     a: 'Look for the Prize Station near the registration desk. Show the completion screen to staff to receive your entry ticket.',
   },
   {
+    icon: ShieldAlert,
     q: 'I already visited a sponsor but it didn\'t record.',
     a: 'Find any IPELRA staff member — they can manually credit your account. Have your email address ready.',
   },
-  {
-    q: 'Does the app work without Wi-Fi?',
-    a: 'No, it needs a connection to record your stops. The conference Wi-Fi network is "IPELRA2026" — check with registration for the password.',
-  },
 ];
 
-function Accordion({ q, a }) {
+function Accordion({ icon: Icon, q, a, index }) {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{
-      border: '1px solid var(--color-border)',
-      borderRadius: 'var(--radius-md)',
-      overflow: 'hidden',
-      marginBottom: 'var(--space-2)',
-    }}>
+    <div
+      style={{
+        background: '#ffffff',
+        border: `1.5px solid ${open ? '#1d3461' : '#e7e8e9'}`,
+        borderRadius: 16,
+        overflow: 'hidden',
+        marginBottom: 10,
+        boxShadow: open ? '0 4px 20px rgba(29,52,97,0.10)' : '0 1px 4px rgba(0,0,0,0.04)',
+        transition: 'border-color 0.2s, box-shadow 0.2s',
+      }}
+    >
       <button
-        className="btn btn-ghost"
         style={{
-          width: '100%', textAlign: 'left', padding: 'var(--space-4)',
-          borderRadius: 0, fontWeight: 600, fontSize: 15,
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)',
+          width: '100%',
+          textAlign: 'left',
+          padding: '16px 18px',
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
         }}
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
       >
-        <span>{q}</span>
+        <div style={{
+          width: 38, height: 38, flexShrink: 0,
+          borderRadius: 12,
+          background: open ? '#1d3461' : '#f0f4fa',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'background 0.2s',
+        }}>
+          <Icon size={18} color={open ? '#ffffff' : '#1d3461'} strokeWidth={2} />
+        </div>
+        <span style={{
+          flex: 1,
+          fontFamily: 'Manrope, sans-serif',
+          fontWeight: 700,
+          fontSize: 15,
+          color: open ? '#1d3461' : '#191c1d',
+          lineHeight: 1.4,
+          textAlign: 'left',
+        }}>{q}</span>
         <ChevronDown
           size={18}
-          color="var(--color-text-2)"
-          style={{ flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+          color={open ? '#1d3461' : '#74777f'}
+          style={{ flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.25s' }}
         />
       </button>
-      {open && (
+      <div style={{
+        maxHeight: open ? 300 : 0,
+        overflow: 'hidden',
+        transition: 'max-height 0.3s cubic-bezier(0.4,0,0.2,1)',
+      }}>
         <div style={{
-          padding: '0 var(--space-4) var(--space-4)',
-          color: 'var(--color-text-2)', fontSize: 15, lineHeight: 1.7,
+          padding: '0 18px 18px 70px',
+          color: '#43474e',
+          fontSize: 14,
+          lineHeight: 1.75,
         }}>
           {a}
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -79,52 +115,75 @@ function Accordion({ q, a }) {
 export default function HelpPage() {
   const navigate = useNavigate();
   return (
-    <div className="page">
-      <div className="page-content" style={{
-        padding: 'var(--space-4)',
-        paddingTop: 'calc(env(safe-area-inset-top, 16px) + 16px)',
-        paddingBottom: 'calc(env(safe-area-inset-bottom, 16px) + 80px)',
+    <div style={{ minHeight: '100dvh', background: '#f0f4fa', position: 'relative' }}>
+
+      {/* Hero header */}
+      <header style={{
+        background: 'linear-gradient(135deg, #1d3461 0%, #254a84 100%)',
+        paddingTop:    'calc(env(safe-area-inset-top, 16px) + 16px)',
+        paddingBottom: 32,
+        paddingLeft:   20,
+        paddingRight:  20,
+        borderRadius:  '0 0 2rem 2rem',
+        position:      'relative',
+        overflow:      'hidden',
       }}>
-        <button className="btn btn-ghost btn-sm" onClick={() => navigate('/')} style={{ marginBottom: 'var(--space-4)' }}>
-          ← Back
+        {/* Decorative circle */}
+        <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -20, left: -20, width: 100, height: 100, borderRadius: '50%', background: 'rgba(255,222,165,0.06)', pointerEvents: 'none' }} />
+
+        <button
+          onClick={() => navigate('/')}
+          style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 10, padding: '6px 14px', color: '#ffffff', fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: 20, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
+          <span style={{ fontSize: 16, lineHeight: 1 }}>←</span> Back
         </button>
 
-        <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 'var(--space-5)' }}>Help & FAQ</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <HelpCircle size={24} color="#ffffff" strokeWidth={2} />
+          </div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 4 }}>Support</div>
+            <h1 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 24, color: '#ffffff', letterSpacing: '-0.4px', lineHeight: 1.1, margin: 0 }}>Help &amp; FAQ</h1>
+          </div>
+        </div>
+      </header>
 
-        {FAQ.map((item, i) => <Accordion key={i} q={item.q} a={item.a} />)}
+      {/* FAQ list */}
+      <div style={{ maxWidth: 520, margin: '0 auto', padding: '20px 16px 0' }}>
+        <p style={{ fontSize: 12, fontWeight: 700, color: '#74777f', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 14 }}>
+          {FAQ.length} questions
+        </p>
 
-        <div className="card" style={{ marginTop: 'var(--space-5)', textAlign: 'center' }}>
-          <p style={{ color: 'var(--color-text-2)', fontSize: 15, marginBottom: 'var(--space-3)' }}>
-            Still stuck? Find an IPELRA staff member — they wear <strong>blue lanyards</strong>.
-          </p>
+        {FAQ.map((item, i) => (
+          <Accordion key={i} index={i} icon={item.icon} q={item.q} a={item.a} />
+        ))}
+
+        {/* Still stuck */}
+        <div style={{
+          marginTop: 8,
+          marginBottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)',
+          background: 'linear-gradient(135deg, #1d3461 0%, #254a84 100%)',
+          borderRadius: 20,
+          padding: '22px 20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+        }}>
+          <div style={{ width: 44, height: 44, borderRadius: 13, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Users size={20} color="#ffffff" />
+          </div>
+          <div>
+            <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 15, color: '#ffffff', marginBottom: 4 }}>Still stuck?</div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.72)', lineHeight: 1.55 }}>
+              Find an IPELRA staff member — they wear <span style={{ color: '#adc8f2', fontWeight: 700 }}>blue lanyards</span>.
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Bottom nav */}
-      <nav style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0,
-        background: '#fff', borderTop: '1px solid var(--color-border)',
-        display: 'flex', paddingBottom: 'env(safe-area-inset-bottom, 0px)', zIndex: 100,
-      }}>
-        {[
-          { Icon: Map, label: 'Passport', path: '/' },
-          { Icon: HelpCircle, label: 'Help', path: '/help', active: true },
-        ].map(item => (
-          <button
-            key={item.path}
-            className="btn btn-ghost"
-            style={{
-              flex: 1, padding: '10px 0', borderRadius: 0,
-              flexDirection: 'column', gap: 2, fontSize: 11,
-              color: item.active ? 'var(--color-primary)' : undefined,
-            }}
-            onClick={() => navigate(item.path)}
-          >
-            <item.Icon size={20} />
-            {item.label}
-          </button>
-        ))}
-      </nav>
+      <BottomNav active="/help" />
     </div>
   );
 }

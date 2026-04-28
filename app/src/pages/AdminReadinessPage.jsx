@@ -7,6 +7,7 @@ import { useEffect, useState, useCallback } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { adminGetReadiness } from '../api';
 import { CheckCircle2, AlertTriangle, XCircle, PartyPopper, RefreshCw } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 function CheckItem({ label, status, detail }) {
   const Icon = status === 'ok' ? CheckCircle2 : status === 'warn' ? AlertTriangle : XCircle;
@@ -29,18 +30,16 @@ function CheckItem({ label, status, detail }) {
 export default function AdminReadinessPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [refreshed, setRefreshed] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError('');
     try {
       const d = await adminGetReadiness();
       setData(d);
       setRefreshed(new Date());
     } catch {
-      setError('Could not reach the readiness endpoint.');
+      toast.error('Could not reach the readiness endpoint.');
     } finally {
       setLoading(false);
     }
@@ -65,8 +64,6 @@ export default function AdminReadinessPage() {
           Last checked: {refreshed.toLocaleTimeString()}
         </div>
       )}
-
-      {error && <div className="form-error" style={{ marginBottom: 'var(--space-4)' }}>{error}</div>}
 
       {loading && !data && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
@@ -99,7 +96,7 @@ export default function AdminReadinessPage() {
                 <div style={{ fontSize: 12, color: 'var(--color-text-2)' }}>Active Sponsors</div>
               </div>
               <div>
-                <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--color-gold)' }}>{data.threshold}</div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--color-primary-container)' }}>{data.threshold}</div>
                 <div style={{ fontSize: 12, color: 'var(--color-text-2)' }}>Points Threshold</div>
               </div>
               <div>

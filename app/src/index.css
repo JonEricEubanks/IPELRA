@@ -1,17 +1,17 @@
 /* ============================================================
    IPELRA Conference Passport — Material Design 3 Theme
-   Primary: Deep Navy (#000c1e / #002344)  ·  Accent: Gold (#fed488)
+   Primary: IPELRA Navy (#1d3461 / #254a84)  ·  Accent: Gold (#fed488)
    Headline: Manrope  ·  Body: Inter
    ============================================================ */
 
 /* ── M3 Color Tokens ─────────────────────────────────────────── */
 :root {
-  /* Primary — deep navy */
-  --color-primary:           #000c1e;
-  --color-primary-dark:      #000810;
-  --color-primary-container: #002344;
+  /* Primary — IPELRA navy */
+  --color-primary:           #1d3461;
+  --color-primary-dark:      #0d1e3c;
+  --color-primary-container: #254a84;
   --color-on-primary:        #ffffff;
-  --color-on-primary-cont:   #708bb2;
+  --color-on-primary-cont:   #8fafd4;
 
   /* Secondary — gold */
   --color-secondary:         #775a19;
@@ -54,8 +54,8 @@
   --color-text:           var(--color-on-surface);
   --color-text-2:         var(--color-on-surface-var);
   --color-text-muted:     var(--color-on-surface-muted);
-  --color-primary-light:  rgba(0,35,68,0.08);
-  --color-primary-ring:   rgba(0,12,30,0.18);
+  --color-primary-light:  rgba(29,52,97,0.08);
+  --color-primary-ring:   rgba(29,52,97,0.18);
   --color-gold-tier:      #775a19;
   --color-platinum-tier:  #43474e;
   --color-success-bg:     var(--color-success-light);
@@ -63,7 +63,7 @@
   --color-danger-light:   var(--color-error-container);
 
   /* Signature gradient */
-  --gradient-primary: linear-gradient(135deg, #000c1e 0%, #002344 100%);
+  --gradient-primary: linear-gradient(135deg, #1d3461 0%, #254a84 100%);
 
   /* Spacing (8pt grid) */
   --space-1: 4px;   --space-2: 8px;   --space-3: 12px;
@@ -188,7 +188,7 @@ input, textarea, select { font-family: inherit; }
 
 .btn-primary {
   background: var(--gradient-primary);
-  color: #ffdea5;
+  color: #ffffff;
   box-shadow: 0 4px 16px rgba(0,12,30,0.25);
 }
 .btn-primary:hover:not(:disabled) {
@@ -226,6 +226,7 @@ input, textarea, select { font-family: inherit; }
 .label    { font-size: 13px; font-weight: 600; color: var(--color-on-surface-var); }
 
 .input {
+  width: 100%;
   height: 52px;
   padding: 0 var(--space-4);
   border: 1.5px solid var(--color-outline-variant);
@@ -235,6 +236,7 @@ input, textarea, select { font-family: inherit; }
   background: var(--color-surface-lowest);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
   outline: none;
+  box-sizing: border-box;
 }
 .input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(0,12,30,0.1); }
 .input::placeholder { color: var(--color-on-surface-muted); }
@@ -258,7 +260,8 @@ input, textarea, select { font-family: inherit; }
 .hint-msg  { font-size: 13px; color: var(--color-on-surface-muted); margin-top: var(--space-1); }
 
 /* Form group aliases (SponsorStopPage) */
-.form-group { display: flex; flex-direction: column; gap: var(--space-2); }
+.form-group { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-4); }
+.form-group:last-child { margin-bottom: 0; }
 .form-label { font-size: 13px; font-weight: 600; color: var(--color-on-surface-var); }
 .form-input {
   height: 52px;
@@ -271,6 +274,11 @@ input, textarea, select { font-family: inherit; }
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
   outline: none;
   width: 100%;
+}
+textarea.form-input {
+  height: auto;
+  padding: var(--space-3) var(--space-4);
+  resize: vertical;
 }
 .form-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(0,12,30,0.1); }
 .form-input::placeholder { color: var(--color-on-surface-muted); }
@@ -294,26 +302,15 @@ input, textarea, select { font-family: inherit; }
   height: 100%;
   width: var(--progress-pct, 0%);
   border-radius: var(--radius-full);
-  background: linear-gradient(90deg, #adc8f2, #ffdea5);
+  background: linear-gradient(90deg, #6ea8d8, #adc8f2);
   transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  overflow: hidden;
 }
-.progress-fill::after {
-  content: '';
-  position: absolute;
-  top: 0; right: 0; bottom: 0;
-  width: 40px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35));
-  animation: shimmer 1.5s ease-in-out infinite;
-}
+
 .progress-fill.complete {
   background: linear-gradient(90deg, #1a7f5a, #34d399);
 }
-@keyframes shimmer {
-  0%  { transform: translateX(-40px); }
-  100%{ transform: translateX(0); }
-}
-
 /* ── Sponsor Card ────────────────────────────────────────────── */
 .sponsor-card {
   background: var(--color-surface-lowest);
@@ -359,7 +356,7 @@ input, textarea, select { font-family: inherit; }
   font-size: 10px; font-weight: 800;
   letter-spacing: 0.5px; text-transform: uppercase;
 }
-.sponsor-badge--gold     { background: var(--color-gold-light); color: #775a19; border: 1px solid rgba(254,212,136,0.5); }
+.sponsor-badge--gold     { background: rgba(37,74,132,0.10); color: #2b5a8a; border: 1px solid rgba(37,74,132,0.20); }
 .sponsor-badge--platinum { background: var(--color-surface-high); color: var(--color-platinum-tier); border: 1px solid var(--color-outline-variant); }
 
 /* ── Points Flash ────────────────────────────────────────────── */
@@ -373,7 +370,7 @@ input, textarea, select { font-family: inherit; }
   bottom: 30%; left: 50%;
   transform: translateX(-50%);
   background: var(--gradient-primary);
-  color: #ffdea5;
+  color: #ffffff;
   padding: var(--space-3) var(--space-6);
   border-radius: var(--radius-full);
   font-size: 22px; font-weight: 800;
@@ -412,7 +409,7 @@ input, textarea, select { font-family: inherit; }
 
 /* ── Almost-There Banner ─────────────────────────────────────── */
 .almost-there-banner {
-  background: linear-gradient(135deg, #f59e0b, #f97316);
+  background: linear-gradient(135deg, #1d3461, #254a84);
   color: white;
   border-radius: var(--radius-xl);
   padding: var(--space-4) var(--space-5);
@@ -555,6 +552,173 @@ tr:hover td { background: var(--color-surface-low); }
 /* ── Responsive ──────────────────────────────────────────────── */
 @media (min-width: 640px) {
   .page-content { padding: var(--space-6); }
+}
+
+/* ── Dark Passport Page ──────────────────────────────────────── */
+.dark-page {
+  background: #0d1e3c;
+  min-height: 100dvh;
+  position: relative;
+}
+/* Radial gradient mesh for depth */
+.dark-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 8% 65%, rgba(29,52,97,0.55) 0%, transparent 100%),
+    radial-gradient(ellipse 55% 35% at 88% 12%, rgba(245,158,11,0.06) 0%, transparent 100%),
+    radial-gradient(ellipse 60% 55% at 50% 105%, rgba(13,30,60,0.75) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+/* SVG noise texture for tactile depth */
+.dark-page::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+}
+.dark-page > * { position: relative; z-index: 1; }
+
+/* ── Platinum Card Shimmer ───────────────────────────────────── */
+@keyframes platinum-shimmer {
+  0%   { transform: translateX(-100%) skewX(-12deg); }
+  100% { transform: translateX(220%)  skewX(-12deg); }
+}
+.sponsor-card--platinum {
+  border: 2px solid rgba(190,195,215,0.45) !important;
+  background: linear-gradient(135deg, #fefefe 0%, #f5f5fa 100%) !important;
+  box-shadow: 0 4px 24px rgba(0,12,30,0.14), 0 0 0 1px rgba(190,195,215,0.2);
+  position: relative;
+  overflow: hidden;
+}
+.sponsor-card--platinum::before {
+  content: '';
+  position: absolute;
+  top: -10%; left: 0;
+  height: 120%;
+  width: 45%;
+  background: linear-gradient(105deg, transparent 0%, rgba(255,255,255,0.75) 50%, transparent 100%);
+  transform: translateX(-100%) skewX(-12deg);
+  animation: platinum-shimmer 1.6s ease-in-out 0.4s 1 forwards;
+  will-change: transform;
+  pointer-events: none;
+}
+.sponsor-card--platinum .sponsor-badge--platinum {
+  background: linear-gradient(135deg, #e8e0d8, #d4cfc8);
+  color: #2a2520;
+  border: 1px solid rgba(180,170,155,0.5);
+  font-weight: 900;
+}
+
+/* ── Locked Card Body (blur dim) ─────────────────────────────── */
+.sponsor-card__locked-body {
+  filter: blur(4px);
+  opacity: 0.55;
+  user-select: none;
+  pointer-events: none;
+  transition: filter 0.3s ease, opacity 0.3s ease;
+}
+
+/* ── Ink Stamp Slam ──────────────────────────────────────────── */
+@keyframes stamp-slam {
+  0%   { opacity: 0; transform: scale(2.8) rotate(-12deg); }
+  35%  { opacity: 1; transform: scale(0.82) rotate(5deg); }
+  60%  { transform: scale(1.08) rotate(-3deg); }
+  80%  { transform: scale(0.96) rotate(2deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-4deg); }
+}
+@keyframes stamp-ink-burst {
+  0%   { box-shadow: 0 0 0 0 rgba(26,127,90,0.5); }
+  60%  { box-shadow: 0 0 0 16px rgba(26,127,90,0); }
+  100% { box-shadow: 0 0 0 0 rgba(26,127,90,0); }
+}
+.stamp-seal {
+  width: 72px; height: 72px;
+  border: 3px solid #1a7f5a;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  transform-origin: center;
+  animation: stamp-slam 0.65s cubic-bezier(0.4,0,0.2,1) forwards,
+             stamp-ink-burst 0.65s ease-out forwards;
+  background: rgba(209,250,229,0.92);
+}
+/* Stamp on completed cards in the home list */
+.stamp-on-card {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+
+/* ── Shake (wrong answer) ────────────────────────────────────── */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-9px); }
+  35% { transform: translateX(8px); }
+  55% { transform: translateX(-6px); }
+  75% { transform: translateX(5px); }
+  90% { transform: translateX(-3px); }
+}
+.shake { animation: shake 0.42s cubic-bezier(0.4,0,0.2,1); }
+
+/* ── Milestone Pulse ─────────────────────────────────────────── */
+@keyframes milestone-glow {
+  0%   { box-shadow: 0 0 0 0 rgba(110,168,216,0.7), 0 0 12px rgba(110,168,216,0.4); }
+  50%  { box-shadow: 0 0 0 10px rgba(110,168,216,0), 0 0 24px rgba(110,168,216,0.2); }
+  100% { box-shadow: 0 0 0 0 rgba(110,168,216,0); }
+}
+.progress-milestone-pulse {
+  animation: milestone-glow 0.8s ease-out forwards !important;
+}
+
+/* ── Bottom Sheet (Phase 2) ──────────────────────────────────── */
+@keyframes sheet-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@keyframes sheet-slide-down {
+  from { transform: translateY(0); }
+  to   { transform: translateY(100%); }
+}
+.sheet-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 300;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.bottom-sheet {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  max-height: 92dvh;
+  background: #ffffff;
+  border-radius: 28px 28px 0 0;
+  z-index: 301;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  animation: sheet-slide-up 0.36s cubic-bezier(0.32,0.72,0,1) forwards;
+  box-shadow: 0 -8px 40px rgba(0,0,0,0.25);
+}
+.bottom-sheet.closing {
+  animation: sheet-slide-down 0.28s cubic-bezier(0.4,0,1,1) forwards;
+}
+.bottom-sheet__handle {
+  width: 40px; height: 4px;
+  background: var(--color-outline-variant);
+  border-radius: 9999px;
+  margin: 14px auto 0;
+  flex-shrink: 0;
+}
+.bottom-sheet__scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 20px calc(env(safe-area-inset-bottom,0px) + 28px);
+  flex: 1;
 }
 
 /* ── Reduced Motion ──────────────────────────────────────────── */

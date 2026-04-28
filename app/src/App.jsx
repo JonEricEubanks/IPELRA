@@ -9,6 +9,7 @@ import PassportHomePage from './pages/PassportHomePage.jsx';
 import SponsorStopPage  from './pages/SponsorStopPage.jsx';
 import CompletedPage    from './pages/CompletedPage.jsx';
 import HelpPage         from './pages/HelpPage.jsx';
+import RankingsPage     from './pages/RankingsPage.jsx';
 import OfflinePage      from './pages/OfflinePage.jsx';
 import LinkExpiredPage  from './pages/LinkExpiredPage.jsx';
 
@@ -55,11 +56,15 @@ export default function App() {
           <Route path="/completed" element={
             <RequireAuth><CompletedPage /></RequireAuth>
           } />
+          <Route path="/rankings" element={
+            <RequireAuth><RankingsPage /></RequireAuth>
+          } />
 
           {/* Admin portal — email magic link auth */}
           <Route path="/admin/login"              element={<AdminLoginPage />} />
           <Route path="/admin/verify"             element={<AdminVerifyPage />} />
-          <Route path="/admin"                    element={<AdminDashboardPage />} />
+          <Route path="/admin"                    element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="/admin/dashboard"          element={<AdminDashboardPage />} />
           <Route path="/admin/sponsors"           element={<AdminSponsorsPage />} />
           <Route path="/admin/sponsors/new"       element={<AdminSponsorEditPage />} />
           <Route path="/admin/sponsors/:id"       element={<AdminSponsorEditPage />} />

@@ -61,6 +61,13 @@ export async function upsertSponsor(doc) {
 }
 
 /**
+ * Permanently deletes a sponsor by id. Partition key = id.
+ */
+export async function deleteSponsor(id) {
+  await sponsors().item(id, id).delete();
+}
+
+/**
  * Returns ALL sponsors (active and inactive), sorted by displayOrder.
  * Used by admin endpoints.
  */
@@ -158,6 +165,14 @@ export async function createCheckin(doc) {
 }
 
 /**
+ * Upserts a check-in document (used to update failed-attempt tracking).
+ */
+export async function upsertCheckin(doc) {
+  const { resource } = await checkins().items.upsert(doc);
+  return resource;
+}
+
+/**
  * Returns all check-ins for the current conference year.
  * Cross-partition — used by admin metrics and export.
  */
@@ -170,6 +185,24 @@ export async function getAllCheckins(conferenceYear) {
     })
     .fetchAll();
   return resources;
+}
+
+/**
+ * Returns all attendees for leaderboard purposes (minimal fields only).
+ * Sorted in JS by totalPoints DESC, capped at `limit`.
+ */
+export async function getAllAttendeesForLeaderboard(conferenceYear, limit = 200) {
+  const year = Number(conferenceYear);
+  const { resources } = await attendees().items
+    .query({
+      query: 'SELECT c.id, c.firstName, c.lastName, c.totalPoints, c.isComplete FROM c WHERE c.conferenceYear = @year',
+      parameters: [{ name: '@year', value: year }],
+    })
+    .fetchAll();
+  return resources
+    .filter(a => a.firstName)
+    .sort((a, b) => (b.totalPoints ?? 0) - (a.totalPoints ?? 0))
+    .slice(0, limit);
 }
 
 /**
