@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getSponsors, getProgress } from '../api';
+import { getSponsors, getProgress, updateAttendeeName } from '../api';
 import { Flame } from 'lucide-react';
 import useCountUp from '../hooks/useCountUp';
 import SponsorSheet from '../components/SponsorSheet';
@@ -163,7 +163,7 @@ export function BottomNav({ active }) {
 }
 
 export default function PassportHomePage() {
-  const { attendee } = useAuth();
+  const { attendee, token, updateAttendee } = useAuth();
   const navigate = useNavigate();
 
   const [sponsors, setSponsors]           = useState([]);
@@ -176,6 +176,13 @@ export default function PassportHomePage() {
   const prevPctRef                        = useRef(0);
   const barRef                            = useRef(null);
 
+  // Name gate state
+  const [showNameGate, setShowNameGate]   = useState(false);
+  const [nameFirst, setNameFirst]         = useState('');
+  const [nameLast, setNameLast]           = useState('');
+  const [nameSaving, setNameSaving]       = useState(false);
+  const [nameError, setNameError]         = useState('');
+
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -184,6 +191,10 @@ export default function PassportHomePage() {
         if (!cancelled) {
           setSponsors(sData.sponsors ?? []);
           setProgress(pData);
+          // Show name gate if attendee has no first name yet
+          if (!pData?.firstName && !attendee?.firstName) {
+            setShowNameGate(true);
+          }
         }
       } catch {
         if (!cancelled) setError('Could not load your passport. Try refreshing.');
@@ -213,6 +224,26 @@ export default function PassportHomePage() {
       const pData = await getProgress();
       setProgress(pData);
     } catch { /* silent */ }
+  }
+
+  // Save name from gate modal
+  async function handleSaveName(e) {
+    e.preventDefault();
+    setNameError('');
+    if (!nameFirst.trim()) { setNameError('Please enter your first name.'); return; }
+    if (!nameLast.trim())  { setNameError('Please enter your last name.');  return; }
+    setNameSaving(true);
+    try {
+      await updateAttendeeName(nameFirst.trim(), nameLast.trim(), token);
+      // Update local auth context so the header greeting updates immediately
+      updateAttendee({ firstName: nameFirst.trim(), lastName: nameLast.trim() });
+      setProgress(prev => prev ? { ...prev, firstName: nameFirst.trim() } : prev);
+      setShowNameGate(false);
+    } catch (err) {
+      setNameError(err.message ?? 'Could not save your name. Please try again.');
+    } finally {
+      setNameSaving(false);
+    }
   }
 
   // Sheet success handler
@@ -255,6 +286,64 @@ export default function PassportHomePage() {
 
   return (
     <div style={{ background: '#f0f2f8', minHeight: '100dvh', paddingBottom: 100 }}>
+
+      {/* ── Name gate overlay ────────────────────────────────── */}
+      {showNameGate && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(13,30,60,0.85)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: '#ffffff', borderRadius: 28, padding: '32px 28px', width: '100%', maxWidth: 380, boxShadow: '0 24px 64px rgba(0,0,0,0.4)' }}>
+            <div style={{ width: 64, height: 64, borderRadius: 18, background: 'linear-gradient(135deg, #1d3461 0%, #254a84 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 30, color: '#ffffff', fontVariationSettings: "'FILL' 1" }}>badge</span>
+            </div>
+            <h2 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 22, color: '#1d3461', textAlign: 'center', marginBottom: 8, letterSpacing: '-0.3px' }}>
+              One quick thing!
+            </h2>
+            <p style={{ color: '#43474e', fontSize: 15, lineHeight: 1.6, textAlign: 'center', marginBottom: 24 }}>
+              Enter your name so you appear on the leaderboard and prize drawing list.
+            </p>
+            <form onSubmit={handleSaveName}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                <div className="field">
+                  <label className="label" htmlFor="ng-firstName">First name</label>
+                  <input
+                    id="ng-firstName"
+                    className="input"
+                    type="text"
+                    autoComplete="given-name"
+                    placeholder="Jane"
+                    value={nameFirst}
+                    onChange={e => { setNameFirst(e.target.value); setNameError(''); }}
+                    autoFocus
+                  />
+                </div>
+                <div className="field">
+                  <label className="label" htmlFor="ng-lastName">Last name</label>
+                  <input
+                    id="ng-lastName"
+                    className="input"
+                    type="text"
+                    autoComplete="family-name"
+                    placeholder="Smith"
+                    value={nameLast}
+                    onChange={e => { setNameLast(e.target.value); setNameError(''); }}
+                  />
+                </div>
+              </div>
+              {nameError && <p className="error-msg" style={{ marginBottom: 12 }}>{nameError}</p>}
+              <button
+                type="submit"
+                disabled={nameSaving}
+                style={{ width: '100%', background: nameSaving ? '#c3c6cf' : 'linear-gradient(135deg, #1d3461 0%, #254a84 100%)', color: '#ffffff', border: 'none', borderRadius: 16, height: 52, fontSize: 16, fontFamily: 'Manrope, sans-serif', fontWeight: 800, cursor: nameSaving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: nameSaving ? 'none' : '0 4px 16px rgba(0,12,30,0.28)' }}
+              >
+                {nameSaving ? (
+                  <><span className="spinner" style={{ width: 18, height: 18, borderWidth: 2, borderTopColor: '#ffffff', borderColor: 'rgba(255,255,255,0.25)' }} /> Saving…</>
+                ) : (
+                  <>Continue to Passport <span className="material-symbols-outlined" style={{ fontSize: 20 }}>arrow_forward</span></>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ── Header ──────────────────────────────────────────── */}
       <header style={{

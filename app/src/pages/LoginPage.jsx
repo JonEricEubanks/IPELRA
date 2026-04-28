@@ -45,7 +45,6 @@ export default function LoginPage() {
   const [email, setEmail]         = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName]   = useState('');
-  const [showName, setShowName]   = useState(false);
   const [loading, setLoading]     = useState(false);
   const [sent, setSent]           = useState(false);
   const [error, setError]         = useState('');
@@ -54,6 +53,8 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     if (!email.trim()) { setError('Please enter your email address.'); return; }
+    if (!firstName.trim()) { setError('Please enter your first name.'); return; }
+    if (!lastName.trim()) { setError('Please enter your last name.'); return; }
     setLoading(true);
     try {
       const res = await sendMagicLink(email.trim(), firstName.trim() || undefined, lastName.trim() || undefined);
@@ -138,33 +139,20 @@ export default function LoginPage() {
               {error && <span className="error-msg">{error}</span>}
             </div>
 
-            {/* Optional name */}
-            {!showName && (
-              <button
-                type="button"
-                onClick={() => setShowName(true)}
-                style={{ background: 'none', border: 'none', color: '#43474e', fontSize: 14, fontWeight: 600, cursor: 'pointer', padding: '2px 0', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6 }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#74777f' }}>person_add</span>
-                Add your name (optional)
-              </button>
-            )}
-
-            {showName && (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 6 }}>
-                  <div className="field">
-                    <label className="label" htmlFor="lp-firstName">First name</label>
-                    <input id="lp-firstName" className="input" type="text" autoComplete="given-name" placeholder="Jane" value={firstName} onChange={e => setFirstName(e.target.value)} />
-                  </div>
-                  <div className="field">
-                    <label className="label" htmlFor="lp-lastName">Last name</label>
-                    <input id="lp-lastName" className="input" type="text" autoComplete="family-name" placeholder="Smith" value={lastName} onChange={e => setLastName(e.target.value)} />
-                  </div>
+            {/* Name fields — required */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 6 }}>
+                <div className="field">
+                  <label className="label" htmlFor="lp-firstName">First name</label>
+                  <input id="lp-firstName" className="input" type="text" autoComplete="given-name" placeholder="Jane" value={firstName} onChange={e => setFirstName(e.target.value)} />
                 </div>
-                <p className="hint-msg" style={{ marginTop: 0 }}>Your name appears on the prize drawing list.</p>
+                <div className="field">
+                  <label className="label" htmlFor="lp-lastName">Last name</label>
+                  <input id="lp-lastName" className="input" type="text" autoComplete="family-name" placeholder="Smith" value={lastName} onChange={e => setLastName(e.target.value)} />
+                </div>
               </div>
-            )}
+              <p className="hint-msg" style={{ marginTop: 0 }}>Your name appears on the leaderboard and prize drawing list.</p>
+            </div>
 
             <button type="submit" disabled={loading} style={S.submitBtn(loading)}>
               {loading ? (

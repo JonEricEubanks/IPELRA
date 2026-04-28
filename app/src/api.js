@@ -131,6 +131,22 @@ export async function getLeaderboard() {
   return res.json();
 }
 
+export async function updateAttendeeName(firstName, lastName, token) {
+  const res = await fetch('/api/attendee/name', {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ firstName, lastName }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to save name.');
+  }
+  return res.json();
+}
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
 // All admin helpers parse JSON and normalise field names to match page expectations.
 
