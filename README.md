@@ -32,7 +32,8 @@ A mobile-friendly web app where conference attendees visit sponsor tables, answe
 8. [Pre-Conference Checklist](#pre-conference-checklist)
 9. [Day-Of Runbook](#day-of-runbook)
 10. [Troubleshooting](#troubleshooting)
-11. [Cost Reference](#cost-reference)
+11. [Capacity & Peak Load](#capacity--peak-load)
+12. [Cost Reference](#cost-reference)
 
 ---
 
@@ -408,6 +409,41 @@ Go to `/login` and enter the email again — a fresh link will be sent. The old 
 1. Pull-to-refresh on the Passport Home page
 2. If still wrong, check `/admin/attendees` → attendee's check-in history shows actual stored points
 3. If check-in is missing entirely, use Manual Credit
+
+---
+
+## Capacity & Peak Load
+
+This app is built on Azure's consumption and serverless tiers, which scale automatically in response to traffic — there are no fixed instance limits to plan around.
+
+### Architecture scaling behavior
+
+| Layer | Scaling mechanism | Effective capacity |
+|---|---|---|
+| Static Web App (frontend) | Azure CDN — globally distributed | Effectively unlimited |
+| Azure Functions (API) | Auto-scales up to 200 parallel instances | Handles thousands of concurrent requests |
+| Cosmos DB (Serverless) | Elastic RU burst — no provisioned throughput | Scales on demand per request |
+| ACS Email | Pay-per-send, no pre-provisioning | No hard rate limit at this volume |
+
+### Expected peak load at IPELRA (160 attendees)
+
+The two highest-traffic moments are opening day registration and the lunch sponsor fair:
+
+| Scenario | Estimated concurrent requests | RU/s estimate | Headroom |
+|---|---|---|---|
+| Mass magic link send (opening) | 20–40 simultaneous | Minimal (read + write + email) | Very comfortable |
+| Sponsor fair checkins (lunch) | 20–50 simultaneous | ~2,000–3,500 RU/s | Well under Cosmos Serverless burst |
+| Leaderboard / progress views | 40–80 simultaneous | ~500–1,000 RU/s (read-heavy) | No concern |
+
+### Cold start management
+
+The warmup timer (`warmup.js`) fires every 10 minutes from **6 AM–6 PM CT on Oct 5–7** to keep a function instance warm. This eliminates the 2–3 second cold-start delay during all conference hours.
+
+**Recommended:** Have a staff member open the app once ~10–15 minutes before doors open on October 5. This pre-warms the instance before the first attendee wave arrives.
+
+### In short
+
+For 160 attendees, this architecture is significantly over-provisioned. The app would handle 5–10× the expected load without any configuration changes. The Consumption + Serverless model means Azure automatically absorbs any traffic spike — you pay only for what is used, and capacity is never a bottleneck at this event size.
 
 ---
 

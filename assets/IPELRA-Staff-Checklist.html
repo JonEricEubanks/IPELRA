@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IPELRA Passport App — Staff Checklist</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #f4f6f9;
+      color: #1a1a2e;
+      padding: 48px 24px;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    .page {
+      max-width: 760px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+
+    /* Header */
+    .header {
+      background: #0d2b6e;
+      padding: 40px 48px 36px;
+      color: #ffffff;
+    }
+    .header .label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #93aee8;
+      margin-bottom: 8px;
+    }
+    .header h1 {
+      font-size: 26px;
+      font-weight: 700;
+      line-height: 1.25;
+      margin-bottom: 10px;
+    }
+    .header p {
+      font-size: 14px;
+      color: #c5d3f0;
+      max-width: 520px;
+    }
+
+    /* Body */
+    .body {
+      padding: 40px 48px 52px;
+    }
+
+    .intro {
+      background: #eef3ff;
+      border-left: 4px solid #0d2b6e;
+      border-radius: 0 8px 8px 0;
+      padding: 16px 20px;
+      margin-bottom: 36px;
+      font-size: 14px;
+      color: #2a3a6e;
+    }
+
+    /* Section */
+    .section {
+      margin-bottom: 36px;
+    }
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #0d2b6e;
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e4eaf8;
+    }
+
+    /* Checklist items */
+    .checklist {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .item {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 14px 16px;
+      border: 1.5px solid #e4eaf8;
+      border-radius: 8px;
+      background: #fafbff;
+      transition: border-color 0.15s;
+    }
+    .item:hover { border-color: #b3c5f0; }
+
+    .checkbox {
+      width: 20px;
+      height: 20px;
+      border: 2px solid #b3c5f0;
+      border-radius: 5px;
+      flex-shrink: 0;
+      margin-top: 1px;
+      background: #fff;
+    }
+
+    .item-content {}
+    .item-title {
+      font-weight: 600;
+      font-size: 14.5px;
+      color: #0d1e3c;
+    }
+    .item-note {
+      font-size: 13px;
+      color: #5a6a8a;
+      margin-top: 3px;
+    }
+
+    /* Priority badge */
+    .badge {
+      display: inline-block;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .badge-required { background: #fde8e8; color: #c0392b; }
+    .badge-confirm  { background: #fef4e2; color: #9a6500; }
+    .badge-optional { background: #e8f5e9; color: #2e7d32; }
+
+    /* Timeline strip */
+    .timeline {
+      display: flex;
+      gap: 0;
+      margin-bottom: 36px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1.5px solid #e4eaf8;
+    }
+    .phase {
+      flex: 1;
+      padding: 16px 18px;
+      background: #fafbff;
+    }
+    .phase + .phase { border-left: 1.5px solid #e4eaf8; }
+    .phase-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #0d2b6e;
+      margin-bottom: 6px;
+    }
+    .phase-date {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #1a1a2e;
+      margin-bottom: 4px;
+    }
+    .phase-desc {
+      font-size: 12px;
+      color: #6a7a9a;
+    }
+
+    /* Footer */
+    .footer {
+      background: #f4f6f9;
+      border-top: 1px solid #e4eaf8;
+      padding: 20px 48px;
+      font-size: 12.5px;
+      color: #8a96a8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    @media print {
+      body { background: white; padding: 0; }
+      .page { box-shadow: none; border-radius: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="label">Confidential — IPELRA Internal</div>
+      <h1>Conference Passport App<br>IPELRA Staff Checklist</h1>
+      <p>Everything IPELRA staff needs to provide, confirm, or decide before the app can go live. Items marked <strong>Required</strong> must be completed before launch.</p>
+    </div>
+
+    <!-- Body -->
+    <div class="body">
+
+      <div class="intro">
+        <strong>How this works:</strong> This checklist is for the IPELRA team only. A separate sheet goes to each sponsor. Once all items below are checked off and sponsor info is collected, we handle the rest — no technical work required from your end.
+      </div>
+
+      <!-- Timeline -->
+      <div class="section">
+        <div class="section-title">Key Milestones</div>
+        <div class="timeline">
+          <div class="phase">
+            <div class="phase-label">Target</div>
+            <div class="phase-date">Late Aug 2026</div>
+            <div class="phase-desc">All sponsor info collected &amp; staff checklist complete</div>
+          </div>
+          <div class="phase">
+            <div class="phase-label">Target</div>
+            <div class="phase-date">Early Sept 2026</div>
+            <div class="phase-desc">App configured &amp; in final testing</div>
+          </div>
+          <div class="phase">
+            <div class="phase-label">Go-Live</div>
+            <div class="phase-date">Oct 5, 2026</div>
+            <div class="phase-desc">Passport app opens for attendees</div>
+          </div>
+          <div class="phase">
+            <div class="phase-label">Lock</div>
+            <div class="phase-date">Oct 7, 2026</div>
+            <div class="phase-desc">Passport closes — prize drawing</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 1 -->
+      <div class="section">
+        <div class="section-title">1 · Branding &amp; Logos</div>
+        <div class="checklist">
+          <div class="item">
+            <div class="checkbox"></div>
+            <div class="item-content">
+              <div class="item-title">Official IPELRA logo file <span class="badge badge-required">Required</span></div>
+              <div class="item-note">PNG or SVG file, transparent background preferred. Used in the app and in every email sent to attendees. A transparent background ensures it looks correct on all screen colors. (A screenshot from the website may work but can appear blurry on high-resolution phone screens.)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2 -->
+      <div class="section">
+        <div class="section-title">2 · People &amp; Access</div>
+        <div class="checklist">
+          <div class="item">
+            <div class="checkbox"></div>
+            <div class="item-content">
+              <div class="item-title">Admin email addresses <span class="badge badge-required">Required</span></div>
+              <div class="item-note">The email address(es) for each person who needs access to the admin portal (dashboard, attendee list, export, etc.). These people will receive a login link by email — no password needed. Typically 2–4 people.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3 -->
+      <div class="section">
+        <div class="section-title">3 · Sponsor Information</div>
+        <div class="checklist">
+          <div class="item">
+            <div class="checkbox"></div>
+            <div class="item-content">
+              <div class="item-title">Final sponsor list with tiers <span class="badge badge-required">Required</span></div>
+              <div class="item-note">A complete list of all participating exhibitors and whether each is Gold or Platinum tier. This determines point values (Gold = 100 pts, Platinum = 150 pts). Use the Sponsor Information Sheet to collect details from each company.</div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="checkbox"></div>
+            <div class="item-content">
+              <div class="item-title">Completed sponsor info sheets returned <span class="badge badge-required">Required</span></div>
+              <div class="item-note">Each sponsor returns their filled-out info sheet to you. You forward everything to us at once. See the companion document: <em>Sponsor Information Sheet</em>.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 4 -->
+      <div class="section">
+        <div class="section-title">4 · Conference Details to Confirm</div>
+        <div class="checklist">
+          <div class="item">
+            <div class="checkbox"></div>
+            <div class="item-content">
+              <div class="item-title">Prize station location at Eagle Ridge <span class="badge badge-confirm">Confirm</span></div>
+              <div class="item-note">The app currently directs completers to <em>"the Prize Station near the conference registration desk."</em> Please confirm this is accurate — if the prize station will be somewhere else, let us know before launch so we can update the wording.</div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="checkbox"></div>
+            <div class="item-content">
+              <div class="item-title">Passport open/close dates and times <span class="badge badge-confirm">Confirm</span></div>
+              <div class="item-note">Currently set to open October 5, 2026 and lock October 7, 2026 (end of conference). If either date or time needs to change, let us know.</div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="checkbox"></div>
+            <div class="item-content">
+              <div class="item-title">Prize &amp; drawing process <span class="badge badge-confirm">Confirm</span></div>
+              <div class="item-note">The app tracks every attendee who completes the passport. We can export a CSV of completers for a prize drawing. Confirm what the prize is and how you plan to run the drawing so we can make sure the app wording matches.</div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="checkbox"></div>
+            <div class="item-content">
+              <div class="item-title">Review the Help &amp; FAQ page <span class="badge badge-confirm">Confirm</span></div>
+              <div class="item-note">The app has a built-in help section that answers common attendee questions (how to earn points, what to do if you forget your link, etc.). We'll share the draft text — please read through it and flag anything that doesn't match how you plan to run the event.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 5 -->
+      <div class="section">
+        <div class="section-title">5 · During the Conference — Staff Duties</div>
+        <div class="checklist">
+          <div class="item">
+            <div class="checkbox"></div>
+            <div class="item-content">
+              <div class="item-title">Print QR codes for each sponsor booth</div>
+              <div class="item-note">We will generate a QR code card for each sponsor. Print one per booth and set it on the table. Sponsors don't need to do anything technical — attendees scan the QR code to get to that sponsor's page in the app.</div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="checkbox"></div>
+            <div class="item-content">
+              <div class="item-title">Activate the passport in the admin portal on opening day</div>
+              <div class="item-note">The passport starts in "off" mode. On the morning of October 5, log into the admin portal and flip the passport to Live. This allows attendees to start checking in.</div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="checkbox"></div>
+            <div class="item-content">
+              <div class="item-title">Monitor the admin dashboard during the conference</div>
+              <div class="item-note">The dashboard shows real-time check-ins, completions, and flagged activity. Typically no action needed — just a good way to see how engagement is going.</div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="checkbox"></div>
+            <div class="item-content">
+              <div class="item-title">Help attendees who say they didn't get their login email</div>
+              <div class="item-note">Direct them to the login page and have them request a new link. Links expire in 15 minutes — if they waited too long, they just request another one. No password, no account to reset.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 6 -->
+      <div class="section">
+        <div class="section-title">6 · After the Conference</div>
+        <div class="checklist">
+          <div class="item">
+            <div class="checkbox"></div>
+            <div class="item-content">
+              <div class="item-title">Export completed attendees list for prize drawing</div>
+              <div class="item-note">In the admin portal, use the Export page to download a CSV of all attendees who completed the passport. Use this list for your prize drawing.</div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="checkbox"></div>
+            <div class="item-content">
+              <div class="item-title">Run Conference Reset to archive data <span class="badge badge-optional">Optional</span></div>
+              <div class="item-note">The admin portal includes a Reset function that archives all attendee and check-in data from this year before the next conference. Not urgent — just do it when you're ready to clean up for next year.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /body -->
+
+    <div class="footer">
+      <span>IPELRA Annual Conference 2026 · Eagle Ridge Resort, Galena IL</span>
+      <span>Confidential — Staff Use Only</span>
+    </div>
+
+  </div>
+</body>
+</html>

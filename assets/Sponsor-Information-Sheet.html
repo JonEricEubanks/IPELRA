@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IPELRA Passport App — Sponsor Information Sheet</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #f4f6f9;
+      color: #1a1a2e;
+      padding: 48px 24px;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    .page {
+      max-width: 760px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+
+    /* Header */
+    .header {
+      background: #1a4a2e;
+      padding: 40px 48px 36px;
+      color: #ffffff;
+    }
+    .header .label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #8ecbaa;
+      margin-bottom: 8px;
+    }
+    .header h1 {
+      font-size: 26px;
+      font-weight: 700;
+      line-height: 1.25;
+      margin-bottom: 10px;
+    }
+    .header p {
+      font-size: 14px;
+      color: #b8d9c5;
+      max-width: 540px;
+    }
+
+    /* Body */
+    .body {
+      padding: 40px 48px 52px;
+    }
+
+    .intro {
+      background: #f0f8f3;
+      border-left: 4px solid #1a4a2e;
+      border-radius: 0 8px 8px 0;
+      padding: 16px 20px;
+      margin-bottom: 36px;
+      font-size: 14px;
+      color: #1a3a2e;
+    }
+
+    /* Section */
+    .section {
+      margin-bottom: 36px;
+    }
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #1a4a2e;
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e0ede5;
+    }
+
+    /* Field rows */
+    .fields {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .field {
+      border: 1.5px solid #e0ede5;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fafcfb;
+    }
+
+    .field-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px 10px;
+      background: #fafcfb;
+      border-bottom: 1px solid #e0ede5;
+    }
+
+    .field-name {
+      font-weight: 600;
+      font-size: 14px;
+      color: #0d1e16;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+    .badge-required { background: #fde8e8; color: #c0392b; }
+    .badge-optional { background: #e8f5e9; color: #2e7d32; }
+
+    .field-note {
+      padding: 10px 16px 12px;
+      font-size: 13px;
+      color: #5a6a5a;
+    }
+
+    .field-input {
+      margin: 0 16px 14px;
+      border: 1.5px dashed #b8d4c2;
+      border-radius: 6px;
+      min-height: 36px;
+      background: #fff;
+    }
+    .field-input.tall { min-height: 72px; }
+
+    /* Tier grid */
+    .tier-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 0 0 4px;
+    }
+
+    .tier-card {
+      border: 1.5px solid #e0ede5;
+      border-radius: 8px;
+      padding: 16px 18px;
+      background: #fafcfb;
+    }
+    .tier-card h3 {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .tier-card.gold h3 { color: #b8860b; }
+    .tier-card.platinum h3 { color: #4a5a7a; }
+    .tier-card p { font-size: 13px; color: #5a6a5a; }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #0d1e16;
+    }
+    .checkbox {
+      width: 20px;
+      height: 20px;
+      border: 2px solid #b3c5b8;
+      border-radius: 5px;
+      flex-shrink: 0;
+      background: #fff;
+    }
+
+    /* Highlight box */
+    .highlight {
+      background: #fffbec;
+      border: 1.5px solid #f0d070;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+    }
+    .highlight strong { color: #7a5a00; }
+    .highlight p { font-size: 13.5px; color: #5a4a10; margin-top: 4px; }
+
+    /* Example box */
+    .example-box {
+      background: #f0f8f3;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 12.5px;
+      color: #2a5a3a;
+      margin-top: 8px;
+    }
+    .example-box strong { font-weight: 600; }
+
+    /* Return to section */
+    .return-box {
+      background: #f4f6f9;
+      border: 1.5px solid #dde3ee;
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin-top: 32px;
+    }
+    .return-box h3 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #0d1e3c;
+      margin-bottom: 6px;
+    }
+    .return-box p { font-size: 13px; color: #5a6a8a; }
+
+    /* Footer */
+    .footer {
+      background: #f4f6f9;
+      border-top: 1px solid #e4eaf8;
+      padding: 20px 48px;
+      font-size: 12.5px;
+      color: #8a96a8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    @media print {
+      body { background: white; padding: 0; }
+      .page { box-shadow: none; border-radius: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="label">For Sponsor / Exhibitor Use</div>
+      <h1>Conference Passport App<br>Sponsor Information Sheet</h1>
+      <p>Fill out this sheet and return it to IPELRA. Your answers are used to set up your exhibit in the digital passport — attendees will visit your page, learn about your company, and answer your question to earn points.</p>
+    </div>
+
+    <!-- Body -->
+    <div class="body">
+
+      <div class="intro">
+        <strong>Deadline:</strong> Please return this sheet to IPELRA no later than <strong>September 1, 2026.</strong> Late submissions may not be included in the passport at launch.
+      </div>
+
+      <!-- Section 1: Company Info -->
+      <div class="section">
+        <div class="section-title">1 · Company Information</div>
+        <div class="fields">
+
+          <div class="field">
+            <div class="field-header">
+              <span class="field-name">Company Name <span class="badge badge-required">Required</span></span>
+            </div>
+            <div class="field-note">Exactly as you want it displayed in the app and on your exhibit card.</div>
+            <div class="field-input"></div>
+          </div>
+
+          <div class="field">
+            <div class="field-header">
+              <span class="field-name">One-Sentence Tagline <span class="badge badge-required">Required</span></span>
+            </div>
+            <div class="field-note">A single sentence that tells attendees what your company does. Shown on your exhibit card in the app.</div>
+            <div class="example-box"><strong>Example:</strong> "Smart software for modern municipal HR and labor relations."</div>
+            <div class="field-input" style="margin-top:10px;"></div>
+          </div>
+
+          <div class="field">
+            <div class="field-header">
+              <span class="field-name">Company Website <span class="badge badge-optional">Optional</span></span>
+            </div>
+            <div class="field-note">Displayed as a link on your exhibit card so attendees can learn more.</div>
+            <div class="field-input"></div>
+          </div>
+
+          <div class="field">
+            <div class="field-header">
+              <span class="field-name">Company Logo <span class="badge badge-required">Required</span></span>
+            </div>
+            <div class="field-note">
+              Attach your logo file to the email when you return this sheet.<br><br>
+              <strong>Best format:</strong> PNG or SVG with a transparent background.<br>
+              <strong>Minimum size:</strong> 400px wide.<br>
+              A logo on a white box background will also work if that's all you have.
+            </div>
+            <div class="field-input"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Section 2: Tier -->
+      <div class="section">
+        <div class="section-title">2 · Sponsorship Tier</div>
+        <div class="tier-grid">
+          <div class="tier-card gold">
+            <h3>Gold</h3>
+            <p>Attendees earn <strong>100 points</strong> for visiting your booth and answering your question correctly.</p>
+            <div class="checkbox-row"><div class="checkbox"></div> This is our tier</div>
+          </div>
+          <div class="tier-card platinum">
+            <h3>Platinum</h3>
+            <p>Attendees earn <strong>150 points</strong> for visiting your booth and answering your question correctly.</p>
+            <div class="checkbox-row"><div class="checkbox"></div> This is our tier</div>
+          </div>
+        </div>
+        <div style="font-size:12.5px; color:#6a7a6a; margin-top:10px;">If you are unsure of your tier, check with IPELRA before submitting.</div>
+      </div>
+
+      <!-- Section 3: Question -->
+      <div class="section">
+        <div class="section-title">3 · Your Passport Question &amp; Answer</div>
+
+        <div class="highlight">
+          <strong>How this works:</strong>
+          <p>Attendees visit your booth, have a brief conversation with your team, and then answer your question in the app to earn points. The app accepts minor spelling mistakes automatically, so attendees don't need to type perfectly.</p>
+        </div>
+
+        <div class="fields">
+
+          <div class="field">
+            <div class="field-header">
+              <span class="field-name">Your Question <span class="badge badge-required">Required</span></span>
+            </div>
+            <div class="field-note">
+              The question attendees will see in the app after visiting your booth. It should be answerable after a 1–2 minute conversation with your team — not a trivia question, but something that naturally comes up when you describe your company.
+            </div>
+            <div class="example-box"><strong>Good example:</strong> "What type of software does [Company] specialize in?"</div>
+            <div class="example-box" style="margin-top:6px;"><strong>Also good:</strong> "What is the name of [Company]'s flagship product?"</div>
+            <div class="example-box" style="margin-top:6px;"><strong>Avoid:</strong> Trivia, trick questions, or anything with multiple possible correct answers.</div>
+            <div class="field-input tall" style="margin-top:10px;"></div>
+          </div>
+
+          <div class="field">
+            <div class="field-header">
+              <span class="field-name">Correct Answer Keyword(s) <span class="badge badge-required">Required</span></span>
+            </div>
+            <div class="field-note">
+              The key word or phrase in the correct answer. The app uses this to check whether attendees typed the right thing — it does <strong>not</strong> have to match exactly, but it needs to be specific enough to distinguish correct answers from wrong ones.
+              <br><br>
+              This is never shown to attendees upfront. After 3 failed attempts, the app shows a partial hint (first letter of each word only).
+            </div>
+            <div class="example-box">
+              <strong>Example question:</strong> "What type of software does CityTech specialize in?"<br>
+              <strong>Example keyword:</strong> <em>permitting software</em><br><br>
+              The app would accept: "permitting software," "Permitting Software," "permitng software" (minor typo), etc.
+            </div>
+            <div class="field-input" style="margin-top:10px;"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Return instructions -->
+      <div class="return-box">
+        <h3>How to Return This Sheet</h3>
+        <p>Email your completed answers and logo file to your IPELRA contact by <strong>September 1, 2026.</strong> If you have questions about what to put for the question/answer section, reach out — we're happy to help you pick something that works well in the app.</p>
+      </div>
+
+    </div><!-- /body -->
+
+    <div class="footer">
+      <span>IPELRA Annual Conference 2026 · Eagle Ridge Resort, Galena IL</span>
+      <span>Return to IPELRA by Sept 1, 2026</span>
+    </div>
+
+  </div>
+</body>
+</html>
