@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IPELRA Passport — Client Go-Live Checklist</title>
+  <style>
+    :root {
+      --navy: #1a2e4a;
+      --blue: #0077cc;
+      --blue-dark: #005fa3;
+      --bg: #f4f6f9;
+      --card: #ffffff;
+      --text: #333942;
+      --muted: #5c6573;
+      --border: #dde3eb;
+      --success: #24b47e;
+      --warning: #f5a623;
+      --danger: #e25950;
+      --shadow: 0 4px 18px rgba(26, 46, 74, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+
+    header img {
+      height: 64px;
+      margin-bottom: 18px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.9rem;
+      color: var(--navy);
+      letter-spacing: -0.3px;
+    }
+
+    header p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 1.05rem;
+    }
+
+    .meta-card {
+      background: var(--navy);
+      color: #fff;
+      border-radius: 16px;
+      padding: 22px 28px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+      margin-bottom: 30px;
+      box-shadow: var(--shadow);
+    }
+
+    .meta-item strong {
+      display: block;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      opacity: 0.75;
+      margin-bottom: 4px;
+    }
+
+    .meta-item span {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .progress-box {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 22px 28px;
+      box-shadow: var(--shadow);
+      margin-bottom: 30px;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .progress-header h2 {
+      margin: 0;
+      font-size: 1.15rem;
+      color: var(--navy);
+    }
+
+    .progress-bar {
+      height: 14px;
+      background: #e8ecf1;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--blue), var(--success));
+      border-radius: 999px;
+      transition: width 0.4s ease;
+    }
+
+    .section {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 26px 28px;
+      margin-bottom: 22px;
+      box-shadow: var(--shadow);
+      border-top: 5px solid var(--blue);
+    }
+
+    .section h2 {
+      margin: 0 0 18px;
+      font-size: 1.25rem;
+      color: var(--navy);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section h2 .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--blue);
+    }
+
+    .section p.lead {
+      margin: -10px 0 18px;
+      color: var(--muted);
+    }
+
+    .checklist {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .checklist li {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .checklist li:last-child {
+      border-bottom: none;
+    }
+
+    .checklist input[type="checkbox"] {
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      margin-top: 2px;
+      accent-color: var(--blue);
+      cursor: pointer;
+    }
+
+    .item-body {
+      flex: 1;
+    }
+
+    .item-title {
+      font-weight: 600;
+      color: var(--navy);
+      font-size: 0.98rem;
+    }
+
+    .item-detail {
+      color: var(--muted);
+      font-size: 0.92rem;
+      margin-top: 4px;
+    }
+
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .badge {
+      font-size: 0.74rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .badge-owner-client { background: #e6f2fb; color: var(--blue-dark); }
+    .badge-owner-mgp { background: #eaf7f1; color: #1f835b; }
+    .badge-deadline { background: #fdf4e3; color: #a36a12; }
+    .badge-critical { background: #fdecea; color: var(--danger); }
+
+    .note {
+      background: #f8fafd;
+      border-left: 4px solid var(--blue);
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+
+    .note strong { color: var(--navy); }
+
+    .signatures {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      margin-top: 24px;
+    }
+
+    .signature-card {
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      padding: 18px;
+      background: #fff;
+    }
+
+    .signature-card strong {
+      display: block;
+      margin-bottom: 40px;
+      color: var(--navy);
+    }
+
+    .signature-line {
+      border-top: 1px solid var(--navy);
+      padding-top: 8px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-top: 40px;
+    }
+
+    .no-print {
+      background: var(--navy);
+      color: #fff;
+      border-radius: 12px;
+      padding: 16px 22px;
+      margin-bottom: 26px;
+      text-align: center;
+      font-size: 0.95rem;
+    }
+
+    .no-print button {
+      background: var(--blue);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    .no-print button:hover { background: var(--blue-dark); }
+
+    @media print {
+      .no-print { display: none !important; }
+      body { background: #fff; }
+      .container { padding: 0; }
+      .section, .progress-box, .meta-card { box-shadow: none; page-break-inside: avoid; }
+      .section { margin-bottom: 16px; }
+    }
+
+    @media (max-width: 600px) {
+      header h1 { font-size: 1.5rem; }
+      .meta-card { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="no-print">
+      💡 <strong>Save as PDF:</strong> Open this page in any browser, then press Ctrl+P / Cmd+P and choose "Save as PDF." Branding and checkboxes will be preserved.
+      <br />
+      <button onclick="window.print()">Print / Save as PDF</button>
+    </div>
+
+    <header>
+      <img src="https://ipelra.org/wp-content/uploads/2021/09/ipelra-logo.png" alt="IPELRA" />
+      <h1>IPELRA Conference Passport — Go-Live Checklist</h1>
+      <p>Client deliverables and operational tasks required before October 5, 2026</p>
+    </header>
+
+    <div class="meta-card">
+      <div class="meta-item">
+        <strong>Client</strong>
+        <span>IPELRA</span>
+      </div>
+      <div class="meta-item">
+        <strong>Developer</strong>
+        <span>MGP Technology Solutions</span>
+      </div>
+      <div class="meta-item">
+        <strong>Conference</strong>
+        <span>Oct 5–10, 2026</span>
+      </div>
+      <div class="meta-item">
+        <strong>Venue</strong>
+        <span>Eagle Ridge Resort, Galena IL</span>
+      </div>
+      <div class="meta-item">
+        <strong>Attendees</strong>
+        <span>~160</span>
+      </div>
+      <div class="meta-item">
+        <strong>Live URL</strong>
+        <span>https://gentle-flower-01d10d50f.7.azurestaticapps.net</span>
+      </div>
+    </div>
+
+    <div class="progress-box">
+      <div class="progress-header">
+        <h2>Overall Progress</h2>
+        <span id="progress-text">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+    </div>
+
+    <!-- CLIENT DELIVERABLES -->
+    <div class="section">
+      <h2><span class="dot"></span>Client Deliverables</h2>
+      <p class="lead">Items only IPELRA can decide, provide, or approve.</p>
+      <ul class="checklist">
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Final sponsor count and tier mix</div>
+            <div class="item-detail">
+              Confirm how many sponsors are Gold and how many are Platinum. MGP will recalculate the completion threshold: <em>(Gold × 100 + Platinum × 150) × 0.80</em>. Current placeholder is 1,000 points.
+            </div>
+            <div class="badges">
+              <span class="badge badge-owner-client">Owner: IPELRA</span>
+              <span class="badge badge-deadline">Due: Before Oct 3</span>
+              <span class="badge badge-critical">Critical</span>
+            </div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Complete sponsor content for every stop</div>
+            <div class="item-detail">
+              Each sponsor needs: name, logo URL, tagline, description, website, tier (gold/platinum), prompt question, answer keyword, and point value (optional). MGP can enter it, but IPELRA must supply it for review.
+            </div>
+            <div class="badges">
+              <span class="badge badge-owner-client">Owner: IPELRA</span>
+              <span class="badge badge-deadline">Due: Before Oct 3</span>
+              <span class="badge badge-critical">Critical</span>
+            </div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Exact admin email addresses</div>
+            <div class="item-detail">
+              Provide the Google Workspace or Gmail addresses that staff will use to log in to the admin portal. These are added to the <code>ADMIN_EMAILS</code> environment variable.
+            </div>
+            <div class="badges">
+              <span class="badge badge-owner-client">Owner: Angie Miller / IPELRA</span>
+              <span class="badge badge-deadline">Due: Before testing</span>
+              <span class="badge badge-critical">Critical</span>
+            </div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Verified custom email domain for magic links</div>
+            <div class="item-detail">
+              Decide whether to use the default Azure-managed domain or a branded domain (recommended for deliverability, e.g. <em>mgpsolutions.com</em>). If branded, add SPF, DKIM, and DMARC DNS records and verify in Azure.
+            </div>
+            <div class="badges">
+              <span class="badge badge-owner-client">Owner: IPELRA / MGP</span>
+              <span class="badge badge-deadline">Due: 1 week before Oct 5</span>
+              <span class="badge badge-critical">Critical</span>
+            </div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Venue Wi-Fi network name</div>
+            <div class="item-detail">Confirm the public Wi-Fi name so the Help/FAQ page can be accurate for attendees.</div>
+            <div class="badges">
+              <span class="badge badge-owner-client">Owner: IPELRA</span>
+              <span class="badge badge-deadline">Due: Content freeze</span>
+            </div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Approve onboarding slides and Help/FAQ copy</div>
+            <div class="item-detail">Review the 3-slide onboarding intro and the Help/FAQ accordion to make sure messaging matches IPELRA branding and rules.</div>
+            <div class="badges">
+              <span class="badge badge-owner-client">Owner: IPELRA</span>
+              <span class="badge badge-deadline">Due: Content freeze</span>
+            </div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Confirm prize-drawing rules</div>
+            <div class="item-detail">
+              The app marks a passport complete when total points reach the calculated threshold; attendees are not required to visit every sponsor. Confirm this matches the prize-eligibility rules.
+            </div>
+            <div class="badges">
+              <span class="badge badge-owner-client">Owner: IPELRA</span>
+              <span class="badge badge-deadline">Due: Before Oct 3</span>
+            </div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Plan distribution of the live URL</div>
+            <div class="item-detail">Decide how attendees will access the app: printed QR codes, signage, email blast, conference app link, etc.</div>
+            <div class="badges">
+              <span class="badge badge-owner-client">Owner: IPELRA</span>
+              <span class="badge badge-deadline">Due: Morning of Oct 5</span>
+            </div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- TECHNICAL CONFIG -->
+    <div class="section">
+      <h2><span class="dot"></span>Technical Configuration</h2>
+      <p class="lead">MGP tasks to configure before and during the conference.</p>
+      <ul class="checklist">
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Set production API URL</div>
+            <div class="item-detail">
+              Update <code>VITE_API_BASE_URL</code> in Azure Static Web App settings and rebuild the React app so the front end points to the deployed Function App.
+            </div>
+            <div class="badges">
+              <span class="badge badge-owner-mgp">Owner: MGP</span>
+            </div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Add Static Web App URL to Function App CORS</div>
+            <div class="item-detail">
+              The Bicep template only allows <code>localhost</code> origins. Add the production SWA URL to the Function App CORS allow-list.
+            </div>
+            <div class="badges">
+              <span class="badge badge-owner-mgp">Owner: MGP</span>
+            </div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Validate magic-link redirect URL</div>
+            <div class="item-detail">
+              Confirm <code>APP_URL</code> resolves to the Static Web App, otherwise magic links in emails will point to the wrong place.
+            </div>
+            <div class="badges">
+              <span class="badge badge-owner-mgp">Owner: MGP</span>
+            </div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Apply final completion threshold</div>
+            <div class="item-detail">
+              Set <code>COMPLETION_THRESHOLD_POINTS</code> in the Function App configuration to the value calculated from the final sponsor mix.
+            </div>
+            <div class="badges">
+              <span class="badge badge-owner-mgp">Owner: MGP</span>
+              <span class="badge badge-deadline">Due: Before Oct 3</span>
+            </div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Enter and activate all sponsors</div>
+            <div class="item-detail">
+              Use the admin portal at <code>/admin/sponsors</code> to add or import every sponsor, test each answer keyword with the fuzzy tester, and set each one <code>isActive = true</code>.
+            </div>
+            <div class="badges">
+              <span class="badge badge-owner-mgp">Owner: MGP</span>
+              <span class="badge badge-deadline">Due: Before Oct 3</span>
+            </div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Keep passport closed until opening</div>
+            <div class="item-detail">
+              Leave <code>PASSPORT_LIVE=false</code> during setup. Flip it to <code>true</code> on the morning of October 5 via Azure CLI or portal.
+            </div>
+            <div class="badges">
+              <span class="badge badge-owner-mgp">Owner: MGP</span>
+              <span class="badge badge-deadline">Due: Morning of Oct 5</span>
+            </div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Verify passport lock time</div>
+            <div class="item-detail">
+              Confirm <code>PASSPORT_LOCK_UTC=2026-10-11T00:00:00Z</code> so the passport auto-locks at 7:00 PM Central on October 10.
+            </div>
+            <div class="badges">
+              <span class="badge badge-owner-mgp">Owner: MGP</span>
+            </div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- TESTING -->
+    <div class="section">
+      <h2><span class="dot"></span>Pre-Conference Testing</h2>
+      <p class="lead">Complete at least 48 hours before October 5.</p>
+      <ul class="checklist">
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Attendee magic-link end-to-end test</div>
+            <div class="item-detail">Request a link from <code>/login</code> with a personal email, confirm delivery within 2 minutes, click it, and land on the onboarding page.</div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Spam and deliverability check</div>
+            <div class="item-detail">Ensure the magic-link email lands in the inbox, not spam/junk. If it hits spam, revisit SPF/DKIM/DMARC and sender reputation.</div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Admin login test for every admin email</div>
+            <div class="item-detail">Each configured admin should log in to <code>/admin</code> successfully and reach the dashboard.</div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Sponsor check-in test</div>
+            <div class="item-detail">Test correct and intentionally incorrect answers for each sponsor to verify the fuzzy matcher and hint behavior.</div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Device testing</div>
+            <div class="item-detail">Open the app on a real iPhone (Safari) and Android Chrome to confirm no zoom bugs, bottom nav is visible, and check-in works.</div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Completion email and leaderboard</div>
+            <div class="item-detail">Trigger a completion and confirm the congratulations email is received and the leaderboard updates.</div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Emergency export and readiness check</div>
+            <div class="item-detail">Test <code>/api/admin/export</code> with the <code>x-export-secret</code> header and review the <code>/admin/readiness</code> dashboard pre-flight.</div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Monitoring setup</div>
+            <div class="item-detail">Open Application Insights live metrics and verify the admin dashboard auto-refreshes every 30 seconds.</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- DAY-OF -->
+    <div class="section">
+      <h2><span class="dot"></span>Day-Of Runbook</h2>
+      <p class="lead">October 5 through October 10.</p>
+      <ul class="checklist">
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Open passport on October 5 morning</div>
+            <div class="item-detail">Set <code>PASSPORT_LIVE=true</code> and announce the URL/QR code to attendees.</div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Pre-warm the app</div>
+            <div class="item-detail">Have a staff member open the app 10–15 minutes before doors open to avoid cold-start delays.</div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Keep admin dashboard visible</div>
+            <div class="item-detail">Leave <code>/admin/dashboard</code> open during conference hours to monitor live metrics.</div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Export raffle CSV at end of conference</div>
+            <div class="item-detail">Go to <code>/admin/export</code>, download the CSV, and save a backup to the IPELRA shared drive.</div>
+          </div>
+        </li>
+        <li>
+          <input type="checkbox" />
+          <div class="item-body">
+            <div class="item-title">Confirm passport auto-locks</div>
+            <div class="item-detail">No action needed if <code>PASSPORT_LOCK_UTC</code> is set, but verify the app shows the closed message after 7:00 PM CT on October 10.</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <div class="note">
+      <strong>How to use this checklist:</strong> Open this page in a browser, check boxes as items are completed, and use <em>Print → Save as PDF</em> to share a clean snapshot with IPELRA and MGP. Progress is tracked automatically above.
+    </div>
+
+    <div class="signatures">
+      <div class="signature-card">
+        <strong>IPELRA Representative</strong>
+        <div class="signature-line">Print name, signature, and date</div>
+      </div>
+      <div class="signature-card">
+        <strong>MGP Technology Solutions</strong>
+        <div class="signature-line">Print name, signature, and date</div>
+      </div>
+    </div>
+
+    <footer>
+      IPELRA Annual Conference 2026 · Eagle Ridge Resort, Galena IL · Live URL: https://gentle-flower-01d10d50f.7.azurestaticapps.net
+    </footer>
+  </div>
+
+  <script>
+    const boxes = document.querySelectorAll('input[type="checkbox"]');
+    const fill = document.getElementById('progress-fill');
+    const text = document.getElementById('progress-text');
+
+    function updateProgress() {
+      const checked = Array.from(boxes).filter(b => b.checked).length;
+      const pct = boxes.length ? Math.round((checked / boxes.length) * 100) : 0;
+      fill.style.width = pct + '%';
+      text.textContent = pct + '%';
+    }
+
+    boxes.forEach(b => b.addEventListener('change', updateProgress));
+    updateProgress();
+  </script>
+</body>
+</html>
