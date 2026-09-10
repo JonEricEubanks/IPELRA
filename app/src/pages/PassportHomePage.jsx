@@ -10,6 +10,8 @@ import { getSponsors, getProgress, updateAttendeeName } from '../api';
 import { Flame } from 'lucide-react';
 import useCountUp from '../hooks/useCountUp';
 import SponsorSheet from '../components/SponsorSheet';
+import SponsorLogo from '../components/SponsorLogo';
+import ScanFab from '../components/ScanFab';
 
 function getRank(pct) {
   if (pct >= 100) return { label: 'Passport Master', icon: 'emoji_events' };
@@ -20,8 +22,8 @@ function getRank(pct) {
 }
 
 const TIER_CFG = {
-  platinum: { avatarBg: 'rgba(29,52,97,0.10)', avatarColor: '#1d3461', borderColor: 'rgba(29,52,97,0.18)' },
-  gold:     { avatarBg: 'rgba(37,74,132,0.08)', avatarColor: '#254a84', borderColor: 'rgba(37,74,132,0.15)' },
+  leadership:  { avatarBg: 'rgba(29,52,97,0.10)', avatarColor: '#1d3461', borderColor: 'rgba(29,52,97,0.18)' },
+  partnership: { avatarBg: 'rgba(37,74,132,0.08)', avatarColor: '#254a84', borderColor: 'rgba(37,74,132,0.15)' },
 };
 function tierCfg(tier) { return TIER_CFG[tier] ?? { avatarBg: '#f3f4f5', avatarColor: '#43474e', borderColor: '#e7e8e9' }; }
 
@@ -55,12 +57,15 @@ function HeroCard({ sponsor, onTap }) {
       onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 14px 40px rgba(13,30,60,0.35)'; }}
       onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 10px 36px rgba(13,30,60,0.28)'; }}
     >
-      <div style={{ width: 60, height: 60, flexShrink: 0, borderRadius: 20, background: sponsor.logoUrl ? '#0d1e3c' : 'rgba(255,255,255,0.12)', border: '1.5px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-        {sponsor.logoUrl
-          ? <img src={sponsor.logoUrl} alt={sponsor.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 8 }} />
-          : <span style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 22, color: '#ffffff', lineHeight: 1 }}>{initial}</span>
-        }
-      </div>
+      <SponsorLogo
+        sponsor={sponsor}
+        size={60}
+        radius={20}
+        imgPadding={8}
+        border="1.5px solid rgba(255,255,255,0.15)"
+        fallbackBg="rgba(255,255,255,0.12)"
+        fallback={<span style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 22, color: '#ffffff', lineHeight: 1 }}>{initial}</span>}
+      />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(173,200,242,0.7)', textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 5 }}>Recommended next stop</div>
         <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 18, color: '#ffffff', marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sponsor.name}</div>
@@ -69,7 +74,7 @@ function HeroCard({ sponsor, onTap }) {
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.10em', background: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.85)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, padding: '2px 7px' }}>
-            {sponsor.tier === 'platinum' ? '◆ ' : ''}{sponsor.tier}
+            {sponsor.tier === 'leadership' ? '◆ ' : ''}{sponsor.tier}
           </span>
           <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>{sponsor.points ?? sponsor.pointValue} pts</span>
         </div>
@@ -82,14 +87,14 @@ function HeroCard({ sponsor, onTap }) {
 function SponsorCard({ sponsor, onTap }) {
   const cfg        = tierCfg(sponsor.tier);
   const initial    = (sponsor.name ?? '?')[0].toUpperCase();
-  const isPlatinum = sponsor.tier === 'platinum';
+  const isLeadership = sponsor.tier === 'leadership';
   const [hov, setHov] = useState(false);
   return (
     <button
       onClick={onTap}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      className={isPlatinum ? 'sponsor-card--platinum' : ''}
+      className={isLeadership ? 'sponsor-card--leadership' : ''}
       style={{
         width: '100%', textAlign: 'left',
         background: '#ffffff',
@@ -102,17 +107,20 @@ function SponsorCard({ sponsor, onTap }) {
         transition: 'box-shadow 200ms ease, transform 200ms ease, border-color 200ms ease',
       }}
     >
-      <div style={{ width: 48, height: 48, flexShrink: 0, borderRadius: 14, background: sponsor.logoUrl ? '#0d1e3c' : cfg.avatarBg, border: `1.5px solid ${sponsor.logoUrl ? 'rgba(29,52,97,0.3)' : cfg.borderColor}`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-        {sponsor.logoUrl
-          ? <img src={sponsor.logoUrl} alt={sponsor.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 6 }} />
-          : <span style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 18, color: cfg.avatarColor, lineHeight: 1 }}>{initial}</span>
-        }
-      </div>
+      <SponsorLogo
+        sponsor={sponsor}
+        size={48}
+        radius={14}
+        imgPadding={6}
+        border={`1.5px solid ${sponsor.logoUrl ? 'rgba(29,52,97,0.3)' : cfg.borderColor}`}
+        fallbackBg={cfg.avatarBg}
+        fallback={<span style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 18, color: cfg.avatarColor, lineHeight: 1 }}>{initial}</span>}
+      />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 15, color: '#1d3461', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sponsor.name}</div>
         {sponsor.tagline && <div style={{ fontSize: 12, color: '#74777f', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sponsor.tagline}</div>}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span className={`sponsor-badge sponsor-badge--${sponsor.tier}`}>{isPlatinum ? '◆ ' : ''}{sponsor.tier}</span>
+          <span className={`sponsor-badge sponsor-badge--${sponsor.tier}`}>{isLeadership ? '◆ ' : ''}{sponsor.tier}</span>
           <span style={{ fontSize: 12, color: '#74777f', fontWeight: 600 }}>{sponsor.points ?? sponsor.pointValue} pts</span>
         </div>
       </div>
@@ -125,12 +133,15 @@ function CollectedCard({ sponsor }) {
   const initial = (sponsor.name ?? '?')[0].toUpperCase();
   return (
     <div style={{ background: '#f0faf5', border: '1.5px solid #b2dfcf', borderRadius: 18, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-      <div style={{ width: 42, height: 42, flexShrink: 0, borderRadius: 13, background: sponsor.logoUrl ? '#0d1e3c' : 'rgba(26,127,90,0.12)', border: '1.5px solid #b2dfcf', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-        {sponsor.logoUrl
-          ? <img src={sponsor.logoUrl} alt={sponsor.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 5 }} />
-          : <span className="material-symbols-outlined" style={{ color: '#1a7f5a', fontSize: 22, fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-        }
-      </div>
+      <SponsorLogo
+        sponsor={sponsor}
+        size={42}
+        radius={13}
+        imgPadding={5}
+        border="1.5px solid #b2dfcf"
+        fallbackBg="rgba(26,127,90,0.12)"
+        fallback={<span className="material-symbols-outlined" style={{ color: '#1a7f5a', fontSize: 22, fontVariationSettings: "'FILL' 1" }}>check_circle</span>}
+      />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 14, color: '#1a7f5a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sponsor.name}</div>
         <div style={{ fontSize: 12, color: '#2d8c6a', fontWeight: 600 }}>+{sponsor.points ?? sponsor.pointValue} pts collected</div>
@@ -163,7 +174,7 @@ export function BottomNav({ active }) {
 }
 
 export default function PassportHomePage() {
-  const { attendee, token, updateAttendee } = useAuth();
+  const { attendee, updateAttendee } = useAuth();
   const navigate = useNavigate();
 
   const [sponsors, setSponsors]           = useState([]);
@@ -234,7 +245,7 @@ export default function PassportHomePage() {
     if (!nameLast.trim())  { setNameError('Please enter your last name.');  return; }
     setNameSaving(true);
     try {
-      await updateAttendeeName(nameFirst.trim(), nameLast.trim(), token);
+      await updateAttendeeName(nameFirst.trim(), nameLast.trim());
       // Update local auth context so the header greeting updates immediately
       updateAttendee({ firstName: nameFirst.trim(), lastName: nameLast.trim() });
       setProgress(prev => prev ? { ...prev, firstName: nameFirst.trim() } : prev);
@@ -274,8 +285,8 @@ export default function PassportHomePage() {
   const activeSponsors = sponsors
     .filter(s => s.isActive)
     .sort((a, b) => {
-      if (a.tier === 'platinum' && b.tier !== 'platinum') return -1;
-      if (a.tier !== 'platinum' && b.tier === 'platinum') return 1;
+      if (a.tier === 'leadership' && b.tier !== 'leadership') return -1;
+      if (a.tier !== 'leadership' && b.tier === 'leadership') return 1;
       return (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
     });
 
@@ -525,6 +536,7 @@ export default function PassportHomePage() {
         </>
       )}
 
+      {!sheet && <ScanFab />}
       <BottomNav active="/" />
     </div>
   );

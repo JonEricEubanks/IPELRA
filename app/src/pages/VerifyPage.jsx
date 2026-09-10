@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { verifyToken } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { readPendingScan, clearPendingScan, pendingScanPath } from '../lib/pendingScan.js';
 import { AlertTriangle } from 'lucide-react';
 
 export default function VerifyPage() {
@@ -42,6 +43,20 @@ export default function VerifyPage() {
 
         // Store session
         login(data.token, data.attendee);
+
+        // Scan-first users: finish the QR unlock they started before logging in.
+        // Prefer `next` from the magic link (survives new tabs / other browsers),
+        // fall back to the locally remembered scan.
+        const nextParam = params.get('next');
+        const pending   = readPendingScan();
+        clearPendingScan();
+        const resumeTo  = (nextParam && /^\/scan\/[A-Za-z0-9._~-]+(\?c=[A-Za-z0-9._~-]+)?$/.test(nextParam))
+          ? nextParam
+          : pending ? pendingScanPath(pending) : null;
+        if (resumeTo) {
+          navigate(resumeTo, { replace: true });
+          return;
+        }
 
         // First-time users → onboarding; returning users → home
         const hasOnboarded = localStorage.getItem('passport_onboarded');

@@ -9,11 +9,14 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { submitCheckin } from '../api';
+import SponsorLogo from './SponsorLogo';
+import QrScannerSheet from './QrScannerSheet';
 
 // ── Tier colour config ──────────────────────────────────────────────────────
 const TIER = {
-  platinum: {
+  leadership: {
     heroGrad:    'linear-gradient(145deg, #1a0a4e 0%, #2d1b6e 45%, #3b2f8c 100%)',
     accentColor: '#a78bfa',
     accentLight: 'rgba(167,139,250,0.12)',
@@ -26,9 +29,9 @@ const TIER = {
     pillBorder:  'rgba(167,139,250,0.3)',
     pointsBg:    'linear-gradient(135deg, #4c1d95, #7c3aed)',
     avatarBg:    'linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%)',
-    label:       '◆ Platinum',
+    label:       '◆ Leadership',
   },
-  gold: {
+  partnership: {
     heroGrad:    'linear-gradient(145deg, #1d3461 0%, #254a84 100%)',
     accentColor: '#6ea8d8',
     accentLight: 'rgba(110,168,216,0.1)',
@@ -41,10 +44,10 @@ const TIER = {
     pillBorder:  'rgba(110,168,216,0.3)',
     pointsBg:    'linear-gradient(135deg, #1d3461, #254a84)',
     avatarBg:    'linear-gradient(135deg, #1d3461 0%, #254a84 100%)',
-    label:       '★ Gold',
+    label:       '★ Partnership',
   },
 };
-function getTier(tier) { return TIER[tier] ?? TIER.gold; }
+function getTier(tier) { return TIER[tier] ?? TIER.partnership; }
 
 export default function SponsorSheet({ sponsor, onClose, onSuccess }) {
   const [phase,        setPhase]        = useState('profile');
@@ -56,8 +59,10 @@ export default function SponsorSheet({ sponsor, onClose, onSuccess }) {
   const [shaking,      setShaking]      = useState(false);
   const [closing,      setClosing]      = useState(false);
   const [contextOpen,  setContextOpen]  = useState(false);
+  const [scanning,     setScanning]     = useState(false);
   const shakeRef  = useRef(null);
   const answerRef = useRef(null);
+  const navigate  = useNavigate();
 
   // Auto-focus answer input when entering question phase
   useEffect(() => {
@@ -100,7 +105,7 @@ export default function SponsorSheet({ sponsor, onClose, onSuccess }) {
     setSubmitError('');
     setServerHint('');
     try {
-      const result = await submitCheckin(sponsor.id, answer.trim());
+      const result = await submitCheckin(sponsor.id, { answer: answer.trim() });
       onSuccess(result);
     } catch (err) {
       setAttempts(a => a + 1);
@@ -180,28 +185,16 @@ export default function SponsorSheet({ sponsor, onClose, onSuccess }) {
 
                   {/* Logo + name */}
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18, marginBottom: 18 }}>
-                    <div style={{
-                      width: 76, height: 76, flexShrink: 0, borderRadius: 22,
-                      background: 'rgba(255,255,255,0.1)',
-                      border: `2px solid ${tc.accentBorder}`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      boxShadow: `0 4px 24px rgba(0,0,0,0.3), 0 0 0 4px ${tc.accentLight}`,
-                      overflow: 'hidden',
-                    }}>
-                      {sponsor.logoUrl ? (
-                        <>
-                          <img
-                            src={sponsor.logoUrl}
-                            alt={sponsor.name}
-                            style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 8 }}
-                            onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex'; }}
-                          />
-                          <span style={{ display: 'none', fontFamily: 'Manrope, sans-serif', fontWeight: 900, fontSize: 26, color: 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>{initial}</span>
-                        </>
-                      ) : (
-                        <span style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 900, fontSize: 26, color: 'rgba(255,255,255,0.92)' }}>{initial}</span>
-                      )}
-                    </div>
+                    <SponsorLogo
+                      sponsor={sponsor}
+                      size={76}
+                      radius={22}
+                      imgPadding={8}
+                      border={`2px solid ${tc.accentBorder}`}
+                      boxShadow={`0 4px 24px rgba(0,0,0,0.3), 0 0 0 4px ${tc.accentLight}`}
+                      fallbackBg="rgba(255,255,255,0.1)"
+                      fallback={<span style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 900, fontSize: 26, color: 'rgba(255,255,255,0.92)' }}>{initial}</span>}
+                    />
 
                     <div style={{ flex: 1, minWidth: 0, paddingTop: 4 }}>
                       <h2 style={{
@@ -260,7 +253,7 @@ export default function SponsorSheet({ sponsor, onClose, onSuccess }) {
                 {/* Quick facts */}
                 <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 10, padding: '7px 12px' }}>
-                    <span style={{ fontSize: 14 }}>{sponsor.tier === 'platinum' ? '◆' : '★'}</span>
+                    <span style={{ fontSize: 14 }}>{sponsor.tier === 'leadership' ? '◆' : '★'}</span>
                     <span style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: 12, color: '#374151', textTransform: 'capitalize' }}>{sponsor.tier} Tier</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 10, padding: '7px 12px' }}>
@@ -341,18 +334,15 @@ export default function SponsorSheet({ sponsor, onClose, onSuccess }) {
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: 18 }}>arrow_back</span>
                 </button>
-                <div style={{
-                  width: 36, height: 36, flexShrink: 0, borderRadius: 10,
-                  background: tc.avatarBg,
-                  border: `1.5px solid ${tc.accentBorder}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-                }}>
-                  {sponsor.logoUrl ? (
-                    <img src={sponsor.logoUrl} alt={sponsor.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 4 }} />
-                  ) : (
-                    <span style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 900, fontSize: 14, color: '#fff' }}>{initial}</span>
-                  )}
-                </div>
+                <SponsorLogo
+                  sponsor={sponsor}
+                  size={36}
+                  radius={10}
+                  imgPadding={4}
+                  border={`1.5px solid ${tc.accentBorder}`}
+                  fallbackBg={tc.avatarBg}
+                  fallback={<span style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 900, fontSize: 14, color: '#fff' }}>{initial}</span>}
+                />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 14, color: '#1d3461', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {sponsor.name}
@@ -506,11 +496,27 @@ export default function SponsorSheet({ sponsor, onClose, onSuccess }) {
                   }
                 </button>
               </form>
+
+              <button
+                type="button"
+                onClick={() => setScanning(true)}
+                style={{ marginTop: 14, width: '100%', background: 'none', border: '1.5px dashed #c3c6cf', borderRadius: 14, padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#1d3461', cursor: 'pointer' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>qr_code_scanner</span>
+                Or scan the QR code at this sponsor&rsquo;s table to unlock instantly
+              </button>
             </>
           )}
 
         </div>
       </div>
+
+      {scanning && (
+        <QrScannerSheet
+          onClose={() => setScanning(false)}
+          onScan={(path) => { setScanning(false); navigate(path); }}
+        />
+      )}
     </>
   );
 }

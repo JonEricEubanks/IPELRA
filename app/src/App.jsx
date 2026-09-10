@@ -12,6 +12,7 @@ import HelpPage         from './pages/HelpPage.jsx';
 import RankingsPage     from './pages/RankingsPage.jsx';
 import OfflinePage      from './pages/OfflinePage.jsx';
 import LinkExpiredPage  from './pages/LinkExpiredPage.jsx';
+import ScanPage         from './pages/ScanPage.jsx';
 
 // Admin screens
 import AdminLoginPage      from './pages/AdminLoginPage.jsx';
@@ -46,6 +47,8 @@ export default function App() {
           <Route path="/link-expired" element={<LinkExpiredPage />} />
           <Route path="/offline"   element={<OfflinePage />} />
           <Route path="/help"      element={<HelpPage />} />
+          {/* QR deep link — handles its own auth so logged-out scanners get routed to login and back */}
+          <Route path="/scan/:sponsorId" element={<ScanPage />} />
 
           <Route path="/" element={
             <RequireAuth><PassportHomePage /></RequireAuth>

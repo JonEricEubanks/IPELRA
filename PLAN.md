@@ -40,8 +40,8 @@ Attendee (mobile browser)
 
 Admin (laptop/phone)
   └─→ Same Static Web App /admin
-        └─→ Google OAuth (SWA built-in OIDC)
-              └─→ Same Functions (/api/admin/*)
+        └─→ Email magic link + JWT (Functions-issued, not SWA auth)
+              └─→ Same Functions (/api/mgmt/*)
                     └─→ Same Cosmos DB
 ```
 
@@ -55,11 +55,19 @@ Admin (laptop/phone)
 5. JWT signed with `JWT_SECRET`, expires `2026-10-10T23:59:59Z` (single auth for entire conference)
 6. JWT stored in `localStorage` with cookie fallback for iOS Safari private mode
 
-**Admins — Google OAuth**
-- SWA built-in Google OIDC provider
-- Backend validates `x-ms-client-principal` header + email against `ADMIN_EMAILS` env var
-- All `/api/admin/*` routes blocked by SWA `staticwebapp.config.json` route rules
-- Emergency export: `GET /api/admin/exportToken` with `x-export-secret` header (no Google auth needed)
+**Admins — Email Magic Link + JWT**
+- Enter email → POST `/api/mgmt/auth/sendLink`; 15-min single-use token emailed via ACS, validated against `ADMIN_EMAILS` env var
+- GET `/api/mgmt/auth/verify?token=` — validates token, issues an 8-hour admin session JWT (`role: 'admin'`)
+- Backend validates the JWT (`Authorization: Bearer <token>`) on every `/api/mgmt/*` route via `requireAdminAuth`
+- Emergency export fallback: `GET /api/mgmt/export` also accepts an `x-export-secret` header instead of a JWT (same endpoint, not a separate route)
+
+### Security Decisions
+
+**JWTs stored in `localStorage` (accepted risk)**
+Both attendee and admin session JWTs are kept in `localStorage` (with `sessionStorage` fallback for iOS Safari private mode) for the full life of the token — up to the conference end date for attendees, 8 hours for admins. This is readable by any script that runs on the page (XSS risk), which is a real tradeoff versus an httpOnly cookie.
+- **Why localStorage instead of httpOnly cookies:** the SPA (Static Web App) and API (separate Function App) are on different hosts, so httpOnly cookies would require CORS `credentials` config and `SameSite`/`Secure` cookie attributes across origins — a materially bigger change than this app's scope justifies for a short-lived conference passport tool.
+- **Mitigations already in place:** `staticwebapp.config.json` sets security headers (e.g. `X-Frame-Options`); the app has a narrow, single-purpose script surface (no third-party ad/analytics scripts); tokens expire at fixed, short-lived boundaries (conference end for attendees, 8h for admins) rather than being indefinitely renewable.
+- **Revisit if:** this app is reused for a larger or higher-stakes event, or third-party scripts are ever added to the frontend.
 
 ---
 
@@ -264,15 +272,14 @@ c:\CodeApps\IPELRA\
 | GET | `/api/sponsors` | Attendee JWT | Active sponsors (respects PASSPORT_LIVE) |
 | POST | `/api/checkin` | Attendee JWT | Fuzzy match, idempotent, sends completion email |
 | GET | `/api/attendee/{id}/progress` | Attendee JWT | Points + stops + attempt counts |
-| GET | `/api/admin/metrics` | Google OAuth | Dashboard data + engagement sort |
-| GET | `/api/admin/export` | Google OAuth | CSV: name, email, completedAt |
-| GET | `/api/admin/exportToken` | `x-export-secret` header | Emergency CSV bypass |
-| PUT | `/api/admin/settings` | Google OAuth | Update threshold + PASSPORT_LIVE |
-| GET | `/api/admin/attendee` | Google OAuth | Lookup attendee by email/name |
-| POST | `/api/admin/manualCredit` | Google OAuth | Credit stop manually with audit note |
-| GET | `/api/admin/flagged` | Google OAuth | Rejected answer review log |
-| GET | `/api/admin/readiness` | Google OAuth | Pre-conference checklist status |
-| POST | `/api/admin/resetConference` | Google OAuth | Archive + reset for new year |
+| GET | `/api/mgmt/metrics` | Admin JWT | Dashboard data + engagement sort |
+| GET | `/api/mgmt/export` | Admin JWT (or `x-export-secret` fallback) | CSV: name, email, completedAt |
+| PUT | `/api/mgmt/sponsors/{id}` | Admin JWT | Update threshold + PASSPORT_LIVE |
+| GET | `/api/mgmt/attendees` | Admin JWT | Lookup attendee by email/name |
+| POST | `/api/mgmt/attendees/credit` | Admin JWT | Credit stop manually with audit note |
+| GET | `/api/mgmt/flagged` | Admin JWT | Rejected answer review log |
+| GET | `/api/mgmt/readiness` | Admin JWT | Pre-conference checklist status |
+| POST | `/api/mgmt/resetConference` | Admin JWT | Archive + reset for new year |
 | *(timer)* | `warmup` | Internal | Cold start prevention Oct 5–7, 6AM–6PM CT |
 
 ---
@@ -302,7 +309,7 @@ c:\CodeApps\IPELRA\
 
 | # | Screen | Notes |
 |---|---|---|
-| 1 | **Admin Login** | Google OAuth |
+| 1 | **Admin Login** | Email magic link + JWT |
 | 2 | **Readiness Checklist** | Pre-conference actionable checklist |
 | 3 | **Metrics Dashboard** | Auto-refresh 30s, trend chart, amber flags |
 | 4 | **Attendee Lookup** | Search + manual credit |
@@ -380,6 +387,6 @@ c:\CodeApps\IPELRA\
 | # | Item | Owner | Status |
 |---|---|---|---|
 | G1 | ACS verified sender domain + SPF/DKIM setup | MGP (DNS owner) | ⬜ Open |
-| G2 | Google OAuth Client ID — requires SWA URL (post-deploy step) | MGP | ⬜ Open |
+| G2 | `ADMIN_EMAILS` env var configured with real admin addresses | MGP | ⬜ Open |
 | G3 | Final sponsor count + tier mix → set COMPLETION_THRESHOLD_POINTS | IPELRA / MGP | ⬜ Open |
-| G4 | Exact admin Google email addresses | Angie Miller / IPELRA | ⬜ Open |
+| G4 | Exact admin email addresses (for `ADMIN_EMAILS`) | Angie Miller / IPELRA | ⬜ Open |

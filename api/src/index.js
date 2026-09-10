@@ -14,4 +14,5 @@ import './functions/adminReset.js';
 import './functions/adminSettings.js';
 import './functions/adminAuth.js';
 import './functions/getLeaderboard.js';
+import './functions/updateAttendeeName.js';
 import './functions/warmup.js';

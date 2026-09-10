@@ -5,6 +5,7 @@
   "description": "Dev/admin scripts for IPELRA Conference Passport",
   "dependencies": {
     "@azure/cosmos": "^4.1.1",
-    "docx": "^9.6.1"
+    "docx": "^9.6.1",
+    "qrcode": "^1.5.4"
   }
 }

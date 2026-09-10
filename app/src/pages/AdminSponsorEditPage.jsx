@@ -36,11 +36,11 @@ function testFuzzy(answer, keyword) {
   return { pass: false, dist, maxDist };
 }
 
-const TIER_POINTS = { gold: 100, platinum: 150 };
+const TIER_POINTS = { partnership: 100, leadership: 150 };
 
 const EMPTY = {
   name:               '',
-  tier:               'gold',
+  tier:               'partnership',
   tagline:            '',
   description:        '',
   website:            '',
@@ -153,8 +153,8 @@ export default function AdminSponsorEditPage() {
             <div className="form-group">
               <label className="form-label">Tier *</label>
               <select className="form-input" value={form.tier} onChange={e => set('tier', e.target.value)}>
-                <option value="gold">Gold (100 pts)</option>
-                <option value="platinum">Platinum (150 pts)</option>
+                <option value="partnership">Partnership (100 pts)</option>
+                <option value="leadership">Leadership (150 pts)</option>
               </select>
             </div>
           </div>

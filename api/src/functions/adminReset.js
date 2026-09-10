@@ -1,5 +1,5 @@
 /**
- * adminReset.js — POST /api/admin/resetConference
+ * adminReset.js — POST /api/mgmt/resetConference
  *
  * Archives all attendee and checkin records from the current year by
  * setting their conferenceYear to a negative (archived) value, then
@@ -10,7 +10,7 @@
  *
  * Body: { confirmToken: "RESET-<currentYear>" }
  *
- * Auth: SWA Google OAuth
+ * Auth: Admin JWT
  */
 
 import { app } from '@azure/functions';

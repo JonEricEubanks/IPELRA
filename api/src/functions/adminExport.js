@@ -1,10 +1,10 @@
 /**
- * adminExport.js — GET /api/admin/export
+ * adminExport.js — GET /api/mgmt/export
  *
  * Returns a CSV of all completed attendees for the prize drawing.
  *
- * Two auth methods (fallback if Google OAuth is unavailable):
- *   1. Primary: SWA Google OAuth (x-ms-client-principal)
+ * Two auth methods (fallback if the admin JWT is unavailable):
+ *   1. Primary: admin JWT (Authorization: Bearer <token>)
  *   2. Emergency: x-export-secret header
  *
  * Returns 200: text/csv attachment
@@ -33,7 +33,7 @@ app.http('adminExport', {
   authLevel: 'anonymous',
   route: 'mgmt/export',
   handler: async (request) => {
-    // Try primary auth (Google OAuth); fall back to export secret
+    // Try primary auth (admin JWT); fall back to export secret
     let authorized = false;
     try {
       requireAdminAuth(request);

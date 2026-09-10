@@ -42,7 +42,7 @@ export default function SponsorStopPage() {
     setSubmitting(true);
     setSubmitError('');
     try {
-      const result = await submitCheckin(id, answer.trim());
+      const result = await submitCheckin(id, { answer: answer.trim() });
       setSuccess(result);
     } catch (err) {
       if (err?.status === 409) {
@@ -138,7 +138,7 @@ export default function SponsorStopPage() {
             <div>
               <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 16, color: '#1d3461', marginBottom: 2 }}>{sponsor.name}</div>
               <div style={{ fontSize: 12, color: '#74777f' }}>
-                {sponsor.tier === 'platinum' ? '⭐ Platinum' : '🏅 Gold'} Sponsor · {sponsor.points} points
+                {sponsor.tier === 'leadership' ? '⭐ Leadership' : '🏅 Partnership'} Sponsor · {sponsor.points} points
               </div>
             </div>
           </div>

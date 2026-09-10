@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { sendMagicLink } from '../api.js';
+import { readPendingScan, pendingScanPath } from '../lib/pendingScan.js';
 
 const S = {
   page:    { minHeight: '100dvh', background: '#f3f4f5', position: 'relative', overflowX: 'hidden' },
@@ -48,6 +49,8 @@ export default function LoginPage() {
   const [loading, setLoading]     = useState(false);
   const [sent, setSent]           = useState(false);
   const [error, setError]         = useState('');
+  // Set when the attendee arrived here by scanning a sponsor QR while logged out
+  const [pendingScan] = useState(() => readPendingScan());
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -57,7 +60,8 @@ export default function LoginPage() {
     if (!lastName.trim()) { setError('Please enter your last name.'); return; }
     setLoading(true);
     try {
-      const res = await sendMagicLink(email.trim(), firstName.trim() || undefined, lastName.trim() || undefined);
+      const next = pendingScan ? pendingScanPath(pendingScan) : null;
+      const res = await sendMagicLink(email.trim(), firstName.trim() || undefined, lastName.trim() || undefined, next);
       if (res.status === 429) {
         const data = await res.json();
         setError(data.error ?? 'The passport is not open yet. Check back at the conference!');
@@ -83,6 +87,11 @@ export default function LoginPage() {
           <p style={{ color: '#43474e', fontSize: 15, lineHeight: 1.65, maxWidth: 300, textAlign: 'center', marginBottom: 8 }}>
             We sent a magic link to <strong style={{ color: '#1d3461' }}>{email}</strong>. Tap it on this device to open your passport.
           </p>
+          {pendingScan && (
+            <p style={{ color: '#1a7f5a', fontSize: 14, fontWeight: 600, textAlign: 'center', marginBottom: 8 }}>
+              Your scanned stop will unlock automatically once you tap the link.
+            </p>
+          )}
           <p style={{ color: '#74777f', fontSize: 13, textAlign: 'center', marginBottom: 28 }}>
             Link expires in 15 minutes · Check spam if it doesn't arrive
           </p>
@@ -119,6 +128,16 @@ export default function LoginPage() {
             Complete sponsor stops to earn points and win prizes at the 2026 Annual Conference.
           </p>
         </div>
+
+        {pendingScan && (
+          <div role="status" style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, background: '#f0faf5', border: '1.5px solid #b2dfcf', borderRadius: 18, padding: '12px 16px', marginBottom: 16 }}>
+            <span className="material-symbols-outlined" style={{ color: '#1a7f5a', fontSize: 24, fontVariationSettings: "'FILL' 1", flexShrink: 0 }}>qr_code_scanner</span>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 14, color: '#1a7f5a' }}>Sponsor stop scanned!</div>
+              <div style={{ fontSize: 13, color: '#2d8c6a', lineHeight: 1.4 }}>Log in once below and it will unlock automatically. Every stop after this is a single scan.</div>
+            </div>
+          </div>
+        )}
 
         {/* Form card */}
         <div style={S.card}>

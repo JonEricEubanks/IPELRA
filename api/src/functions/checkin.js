@@ -1,30 +1,35 @@
 /**
  * checkin.js — POST /api/checkin
  *
- * Core game mechanic: attendee submits an answer to a sponsor's prompt question.
+ * Core game mechanic: attendee unlocks a sponsor stop by EITHER answering the
+ * sponsor's prompt question OR scanning the sponsor's printed QR code.
  *
- * Body: { sponsorId, answer }
+ * Body (exactly one of):
+ *   { sponsorId, answer }   — prompt path (fuzzy-matched, 3 attempts, hint on 3rd)
+ *   { sponsorId, qrCode }   — QR path (exact match against sponsor.qrCode)
  *
  * Flow:
  * 1. Validate JWT + extract attendeeId
- * 2. Load sponsor (verify active, get keyword + pointValue)
+ * 2. Load sponsor (verify active, get keyword/qrCode + pointValue)
  * 3. Check passport is live and not locked
  * 4. Check attendee hasn't already completed this sponsor
- * 5. Fuzzy-match the answer against the keyword
- *    - Hit: create checkin doc, update attendee points + stamps, maybe send completion email
- *    - Miss: return 422 with attempt feedback + hint after 3rd attempt
+ * 5. Validate the unlock:
+ *    - QR miss: return 422 (does NOT consume prompt attempts)
+ *    - Prompt miss: return 422 with attempt feedback + hint after 3rd attempt
+ *    - Hit (either): create checkin doc, update attendee points + stamps, maybe send completion email
  * 6. Cosmos unique key (/sponsorId within /attendeeId partition) prevents
  *    duplicate checkins at the DB level as a final safety net
  *
- * Returns 200: { correct: true, pointsAwarded, totalPoints, isComplete, completedAt?, hint? }
- * Returns 422: { correct: false, attemptsUsed, hint? }
- * Returns 400/401/403/409/423: various error states
+ * Returns 200: { correct: true, pointsAwarded, totalPoints, isComplete, completedAt?, method }
+ * Returns 422: { correct: false, attemptsUsed?, hint?, message }
+ * Returns 400/401/403/404/409/423: various error states
  */
 
 import { app } from '@azure/functions';
 import { v4 as uuidv4 } from 'uuid';
 import { requireAttendeeAuth, unauthorizedResponse } from '../lib/auth.js';
 import { isCorrectAnswer, generateHint } from '../lib/fuzzyMatch.js';
+import { isValidQrCode } from '../lib/qr.js';
 import {
   getSponsorById,
   getAttendeeById,
@@ -79,18 +84,26 @@ app.http('checkin', {
 
     const sponsorId = (body.sponsorId ?? '').trim();
     const answer    = (body.answer    ?? '').trim();
+    const qrCode    = (body.qrCode    ?? '').trim();
+    const method    = qrCode ? 'qr' : 'prompt';
 
-    if (!sponsorId || !answer) {
+    if (!sponsorId || (!answer && !qrCode)) {
       return new Response(
-        JSON.stringify({ error: 'sponsorId and answer are required' }),
+        JSON.stringify({ error: 'sponsorId and either answer or qrCode are required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    if (answer && qrCode) {
+      return new Response(
+        JSON.stringify({ error: 'Provide either answer or qrCode, not both' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    // Clamp answer length to prevent abuse
-    if (answer.length > 500) {
+    // Clamp lengths to prevent abuse
+    if (answer.length > 500 || qrCode.length > 128) {
       return new Response(
-        JSON.stringify({ error: 'Answer is too long' }),
+        JSON.stringify({ error: 'Input is too long' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -128,10 +141,21 @@ app.http('checkin', {
     // failed-attempt document can exist per attendee+sponsor. Read the stored count.
     const failedAttemptDoc = priorAttempts.find(c => c.failed === true);
     const attemptsUsed = failedAttemptDoc?.attemptCount ?? 0;
-
-    // ── Fuzzy match ───────────────────────────────────────────────────────
-    const correct = isCorrectAnswer(sponsor.promptAnswerKeyword, answer);
     const now = new Date().toISOString();
+
+    // ── QR path: exact match, never consumes prompt attempts ───────────────────
+    if (method === 'qr' && !isValidQrCode(sponsor.qrCode, qrCode)) {
+      return new Response(
+        JSON.stringify({
+          correct: false,
+          message: 'This QR code isn\'t valid for this sponsor. Try answering the question at the table instead.',
+        }),
+        { status: 422, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ── Prompt path: fuzzy match ────────────────────────────────────────────────
+    const correct = method === 'qr' || isCorrectAnswer(sponsor.promptAnswerKeyword, answer);
 
     if (!correct) {
       // Upsert the single failed-attempt doc (unique key prevents multiple docs per sponsor)
@@ -144,6 +168,7 @@ app.http('checkin', {
         sponsorName:     sponsor.name,
         pointsAwarded:   0,
         answerSubmitted: answer,
+        method:          'prompt',
         attemptCount:    newAttemptsUsed,
         rejectedAnswers: [...(failedAttemptDoc?.rejectedAnswers ?? []), answer],
         timestamp:       now,
@@ -182,8 +207,9 @@ app.http('checkin', {
       sponsorId:       sponsor.id,
       sponsorName:     sponsor.name,
       pointsAwarded:   sponsor.pointValue,
-      answerSubmitted: answer,
-      attemptCount:    attemptsUsed + 1,
+      answerSubmitted: method === 'prompt' ? answer : null,
+      method,
+      attemptCount:    method === 'prompt' ? attemptsUsed + 1 : attemptsUsed,
       rejectedAnswers,
       timestamp:       now,
       conferenceYear:  Number(process.env.CONFERENCE_YEAR ?? '2026'),
@@ -194,7 +220,8 @@ app.http('checkin', {
     });
 
     // ── Update attendee totals ─────────────────────────────────────────────
-    const newTotalPoints  = (attendee.totalPoints ?? 0) + sponsor.pointValue;
+    // Number() guards against string values hand-entered in Cosmos (would otherwise concatenate)
+    const newTotalPoints  = Number(attendee.totalPoints ?? 0) + Number(sponsor.pointValue);
     const threshold       = Number(process.env.COMPLETION_THRESHOLD_POINTS ?? '1000');
     const newIsComplete   = newTotalPoints >= threshold;
     const newCompletedAt  = newIsComplete && !attendee.isComplete ? now : attendee.completedAt;
@@ -220,6 +247,7 @@ app.http('checkin', {
     return new Response(
       JSON.stringify({
         correct:       true,
+        method,
         pointsAwarded: sponsor.pointValue,
         totalPoints:   newTotalPoints,
         isComplete:    newIsComplete,

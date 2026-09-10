@@ -15,7 +15,7 @@ import { requireAttendeeAuth, unauthorizedResponse } from '../lib/auth.js';
 import { getActiveSponsors } from '../lib/cosmos.js';
 
 // Fields that must NEVER be sent to the client
-const REDACTED_FIELDS = ['promptAnswerKeyword'];
+const REDACTED_FIELDS = ['promptAnswerKeyword', 'qrCode'];
 
 function sanitizeSponsor(sponsor) {
   const safe = { ...sponsor };

@@ -1,12 +1,12 @@
 /**
  * adminSettings.js — Sponsor CRUD for admin portal
  *
- * GET    /api/admin/sponsors          — list all sponsors (including inactive)
- * POST   /api/admin/sponsors          — create a new sponsor
- * PUT    /api/admin/sponsors/:id      — update a sponsor (full replace semantics)
- * PATCH  /api/admin/sponsors/:id      — partial update (e.g., toggle isActive)
+ * GET    /api/mgmt/sponsors          — list all sponsors (including inactive)
+ * POST   /api/mgmt/sponsors          — create a new sponsor
+ * PUT    /api/mgmt/sponsors/:id      — update a sponsor (full replace semantics)
+ * PATCH  /api/mgmt/sponsors/:id      — partial update (e.g., toggle isActive)
  *
- * Auth: SWA Google OAuth
+ * Auth: Admin JWT
  */
 
 import { app } from '@azure/functions';
@@ -14,7 +14,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { requireAdminAuth, forbiddenResponse } from '../lib/auth.js';
 import { getAllSponsors, getSponsorById, upsertSponsor, deleteSponsor } from '../lib/cosmos.js';
 
-const VALID_TIERS = ['gold', 'platinum'];
+const VALID_TIERS = ['partnership', 'leadership'];
 
 function validateSponsorBody(body) {
   const errors = [];
@@ -28,7 +28,7 @@ function validateSponsorBody(body) {
   return errors;
 }
 
-// GET /api/admin/sponsors
+// GET /api/mgmt/sponsors
 app.http('adminGetSponsors', {
   methods: ['GET'],
   authLevel: 'anonymous',
@@ -43,7 +43,7 @@ app.http('adminGetSponsors', {
   },
 });
 
-// POST /api/admin/sponsors
+// POST /api/mgmt/sponsors
 app.http('adminCreateSponsor', {
   methods: ['POST'],
   authLevel: 'anonymous',
@@ -63,7 +63,7 @@ app.http('adminCreateSponsor', {
       });
     }
 
-    const pointValues = { gold: 100, platinum: 150 };
+    const pointValues = { partnership: 100, leadership: 150 };
     const now = new Date().toISOString();
     const allSponsors = await getAllSponsors();
     const maxOrder = allSponsors.reduce((m, s) => Math.max(m, s.displayOrder ?? 0), 0);
@@ -91,7 +91,7 @@ app.http('adminCreateSponsor', {
   },
 });
 
-// PUT /api/admin/sponsors/{id}
+// PUT /api/mgmt/sponsors/{id}
 app.http('adminUpdateSponsor', {
   methods: ['PUT'],
   authLevel: 'anonymous',
@@ -119,7 +119,7 @@ app.http('adminUpdateSponsor', {
       });
     }
 
-    const pointValues = { gold: 100, platinum: 150 };
+    const pointValues = { partnership: 100, leadership: 150 };
     const doc = {
       ...existing,
       name:                body.name.trim(),
@@ -142,7 +142,7 @@ app.http('adminUpdateSponsor', {
   },
 });
 
-// PATCH /api/admin/sponsors/{id} — partial update (isActive, displayOrder, etc.)
+// PATCH /api/mgmt/sponsors/{id} — partial update (isActive, displayOrder, etc.)
 app.http('adminPatchSponsor', {
   methods: ['PATCH'],
   authLevel: 'anonymous',

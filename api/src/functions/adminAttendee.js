@@ -21,7 +21,7 @@ import {
   createCheckin,
 } from '../lib/cosmos.js';
 
-// GET /api/admin/attendees?email=attendee@example.com
+// GET /api/mgmt/attendees?email=attendee@example.com
 app.http('adminGetAttendee', {
   methods: ['GET'],
   authLevel: 'anonymous',
@@ -51,7 +51,7 @@ app.http('adminGetAttendee', {
   },
 });
 
-// POST /api/admin/attendees/credit
+// POST /api/mgmt/attendees/credit
 // Body: { attendeeId, attendeeEmail, sponsorId, note }
 app.http('adminManualCredit', {
   methods: ['POST'],
@@ -119,7 +119,8 @@ app.http('adminManualCredit', {
     });
 
     // Update attendee
-    const newTotalPoints  = (attendee.totalPoints ?? 0) + sponsor.pointValue;
+    // Number() guards against string values hand-entered in Cosmos (would otherwise concatenate)
+    const newTotalPoints  = Number(attendee.totalPoints ?? 0) + Number(sponsor.pointValue);
     const threshold       = Number(process.env.COMPLETION_THRESHOLD_POINTS ?? '1000');
     const newIsComplete   = newTotalPoints >= threshold;
     const newCompletedAt  = newIsComplete && !attendee.isComplete ? now : attendee.completedAt;

@@ -1,10 +1,10 @@
 /**
- * adminFlagged.js — GET /api/admin/flagged
+ * adminFlagged.js — GET /api/mgmt/flagged
  *
  * Returns checkins where the attendee had failed attempts,
  * grouped by sponsor, so admins can review and fix bad keywords.
  *
- * Auth: SWA Google OAuth
+ * Auth: Admin JWT
  */
 
 import { app } from '@azure/functions';

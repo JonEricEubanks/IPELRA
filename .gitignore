@@ -16,6 +16,12 @@ api/local.settings.json
 funclogs/
 *.zip
 
+# ── Generated sponsor QR sheets ───────────────────────────────
+# Contains real per-sponsor unlock secrets (?c=...) — never commit to a public repo.
+# Regenerate locally with: node scripts/generateQrCodes.js (requires APP_URL + Cosmos connection)
+assets/qr-sheets.html
+assets/local-test-qr*.png
+
 # ── OS / Editor ───────────────────────────────────────────────
 .DS_Store
 Thumbs.db

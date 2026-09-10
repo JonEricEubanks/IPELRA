@@ -1,9 +1,9 @@
 /**
- * adminMetrics.js — GET /api/admin/metrics
+ * adminMetrics.js — GET /api/mgmt/metrics
  *
  * Returns live conference metrics for the admin dashboard.
  *
- * Auth: requires SWA Google OAuth (x-ms-client-principal header)
+ * Auth: requires admin JWT (Authorization: Bearer <token>)
  * Returns 200: { totals, completionRate, topSponsors, recentCompletions, asOf }
  */
 

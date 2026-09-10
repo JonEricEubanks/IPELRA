@@ -1,14 +1,15 @@
 /**
  * adminAuth.js — Admin magic-link authentication
  *
- * POST /api/admin/auth/sendLink  — send login link to admin email
- * GET  /api/admin/auth/verify    — verify token, return admin session JWT
+ * POST /api/mgmt/auth/sendLink  — send login link to admin email
+ * GET  /api/mgmt/auth/verify    — verify token, return admin session JWT
  */
 
 import { app } from '@azure/functions';
 import jwt from 'jsonwebtoken';
 import { signAdminMagicToken, signAdminToken } from '../lib/auth.js';
 import { sendAdminMagicLinkEmail } from '../lib/email.js';
+import { isAllowed } from '../lib/rateLimit.js';
 
 const JWT_SECRET = () => process.env.JWT_SECRET;
 const ADMIN_EMAILS = () => (process.env.ADMIN_EMAILS ?? '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
@@ -22,7 +23,7 @@ function json(status, body) {
   });
 }
 
-// POST /api/admin/auth/sendLink
+// POST /api/mgmt/auth/sendLink
 app.http('adminAuthSendLink', {
   methods: ['POST'],
   authLevel: 'anonymous',
@@ -32,6 +33,12 @@ app.http('adminAuthSendLink', {
     try { body = await req.json(); } catch { body = {}; }
 
     const email = (body.email ?? '').trim().toLowerCase();
+
+    // ── Rate limit (per email, applied before the allowlist check so the
+    // response is identical whether or not the email is a real admin) ──
+    if (!isAllowed(`adminAuthSendLink:${email || 'unknown'}`)) {
+      return json(429, { error: 'Too many requests. Please wait a few minutes and try again.' });
+    }
 
     // Always return the same message — don't reveal whether email is authorized
     if (!email || !ADMIN_EMAILS().includes(email)) {
@@ -51,7 +58,7 @@ app.http('adminAuthSendLink', {
   },
 });
 
-// GET /api/admin/auth/verify?token=
+// GET /api/mgmt/auth/verify?token=
 app.http('adminAuthVerify', {
   methods: ['GET'],
   authLevel: 'anonymous',

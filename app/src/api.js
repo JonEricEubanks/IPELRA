@@ -73,10 +73,10 @@ export async function adminVerifyToken(token) {
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
-export async function sendMagicLink(email, firstName, lastName) {
+export async function sendMagicLink(email, firstName, lastName, next = null) {
   return request('/api/auth/sendMagicLink', {
     method: 'POST',
-    body: JSON.stringify({ email, firstName, lastName }),
+    body: JSON.stringify({ email, firstName, lastName, ...(next ? { next } : {}) }),
   });
 }
 
@@ -109,10 +109,13 @@ export async function getProgress() {
   };
 }
 
-export async function submitCheckin(sponsorId, answer) {
+/**
+ * Unlock a sponsor stop. `unlock` is either { answer } (prompt) or { qrCode } (QR scan).
+ */
+export async function submitCheckin(sponsorId, unlock) {
   const res = await request('/api/checkin', {
     method: 'POST',
-    body: JSON.stringify({ sponsorId, answer }),
+    body: JSON.stringify({ sponsorId, ...unlock }),
   });
   if (!res) return null;
   const data = await res.json();
@@ -131,15 +134,12 @@ export async function getLeaderboard() {
   return res.json();
 }
 
-export async function updateAttendeeName(firstName, lastName, token) {
-  const res = await fetch('/api/attendee/name', {
+export async function updateAttendeeName(firstName, lastName) {
+  const res = await request('/api/attendee/name', {
     method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
     body: JSON.stringify({ firstName, lastName }),
   });
+  if (!res) return null;
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error || 'Failed to save name.');
@@ -267,14 +267,6 @@ export async function adminGetFlagged() {
 export async function adminGetReadiness() {
   const res = await request('/api/mgmt/readiness');
   return res.json(); // { checks: [...] }
-}
-
-export async function adminUpdateSettings(payload) {
-  const res = await request('/api/mgmt/settings', {
-    method: 'PUT',
-    body: JSON.stringify(payload),
-  });
-  return res.json();
 }
 
 export async function adminResetConference(confirmToken) {

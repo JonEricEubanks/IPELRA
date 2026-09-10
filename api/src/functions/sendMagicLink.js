@@ -1,7 +1,9 @@
 /**
  * sendMagicLink.js — POST /api/auth/sendMagicLink
  *
- * Accepts: { email, firstName?, lastName? }
+ * Accepts: { email, firstName?, lastName?, next? }
+ *   next — optional /scan/... path; embedded in the magic link so a scan-first
+ *          attendee lands back on their QR unlock after logging in
  * - Creates or updates the attendee document
  * - Generates a one-time magic link token (hashed in Cosmos)
  * - Sends the link via ACS Email
@@ -14,8 +16,10 @@
 import { app } from '@azure/functions';
 import { v4 as uuidv4 } from 'uuid';
 import { generateMagicToken } from '../lib/auth.js';
+import { safeNextPath } from '../lib/redirect.js';
 import { getAttendeeByEmail, upsertAttendee } from '../lib/cosmos.js';
 import { sendMagicLinkEmail } from '../lib/email.js';
+import { isAllowed } from '../lib/rateLimit.js';
 
 // Simple email format check — not exhaustive; just prevents obvious garbage
 function isValidEmail(email) {
@@ -49,6 +53,7 @@ app.http('sendMagicLink', {
     const email = (body.email ?? '').trim().toLowerCase();
     const firstName = (body.firstName ?? '').trim() || null;
     const lastName  = (body.lastName  ?? '').trim() || null;
+    const next      = safeNextPath(body.next); // null unless it's a safe /scan/... path
 
     if (!isValidEmail(email)) {
       return new Response(
@@ -69,6 +74,14 @@ app.http('sendMagicLink', {
       return new Response(
         JSON.stringify({ error: 'Invalid last name' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ── Rate limit (per email) ────────────────────────────────────────────
+    if (!isAllowed(`sendMagicLink:${email}`)) {
+      return new Response(
+        JSON.stringify({ error: 'Too many requests. Please wait a few minutes and try again.' }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
@@ -99,7 +112,7 @@ app.http('sendMagicLink', {
     // ── Send magic link email ─────────────────────────────────────────────
     // Fire and forget — we don't block the response on ACS polling
     // If ACS fails the attendee can request another link; failure is logged by App Insights
-    sendMagicLinkEmail(email, rawToken, firstName).catch(err => {
+    sendMagicLinkEmail(email, rawToken, firstName, next).catch(err => {
       console.error('[sendMagicLink] ACS email send failed:', err.message);
     });
 

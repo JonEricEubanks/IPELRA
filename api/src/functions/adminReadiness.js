@@ -1,12 +1,12 @@
 /**
- * adminReadiness.js — GET /api/admin/readiness
+ * adminReadiness.js — GET /api/mgmt/readiness
  *
  * Live readiness checklist for admins — pulls real data to confirm
  * the system is configured and ready for the conference.
  *
  * Returns a list of checks with status: 'ok' | 'warn' | 'error'
  *
- * Auth: SWA Google OAuth
+ * Auth: Admin JWT
  */
 
 import { app } from '@azure/functions';

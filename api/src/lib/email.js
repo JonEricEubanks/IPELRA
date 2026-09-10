@@ -108,9 +108,11 @@ function completionHtml(firstName, completedAt) {
  * @param {string} toEmail
  * @param {string} rawToken  - The un-hashed token to embed in the URL
  * @param {string|null} firstName
+ * @param {string|null} next - Optional pre-validated /scan/... path to resume after login
  */
-export async function sendMagicLinkEmail(toEmail, rawToken, firstName = null) {
-  const verifyUrl = `${APP_URL()}/verify?token=${encodeURIComponent(rawToken)}`;
+export async function sendMagicLinkEmail(toEmail, rawToken, firstName = null, next = null) {
+  const verifyUrl = `${APP_URL()}/verify?token=${encodeURIComponent(rawToken)}`
+    + (next ? `&next=${encodeURIComponent(next)}` : '');
   const displayName = firstName ? firstName.trim() : null;
 
   const message = {
@@ -212,7 +214,7 @@ export async function sendAdminMagicLinkEmail(toEmail, loginUrl) {
     </p>
     <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
     <p style="color: #bbb; font-size: 12px; text-align: center; margin: 0;">
-      IPELRA Annual Conference 2026 · Eagle Ridge Resort, Galena IL
+      IPELRA Annual Conference 2026 ï¿½ Eagle Ridge Resort, Galena IL
     </p>
   </div>
 </body>
