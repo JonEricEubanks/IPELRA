@@ -62,11 +62,13 @@ export default function LoginPage() {
     try {
       const next = pendingScan ? pendingScanPath(pendingScan) : null;
       const res = await sendMagicLink(email.trim(), firstName.trim() || undefined, lastName.trim() || undefined, next);
-      if (res.status === 429) {
-        const data = await res.json();
-        setError(data.error ?? 'The passport is not open yet. Check back at the conference!');
-      } else {
+      if (res.ok) {
         setSent(true);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? (res.status === 429
+          ? 'The passport is not open yet. Check back at the conference!'
+          : 'We couldn\u2019t send your login email just now. Please try again in a moment.'));
       }
     } catch {
       setError('Something went wrong. Please check your internet connection and try again.');

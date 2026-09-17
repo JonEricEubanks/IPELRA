@@ -7,6 +7,16 @@
 
     "COSMOS_CONNECTION_STRING": "AccountEndpoint=https://<your-account>.documents.azure.com:443/;AccountKey=<key>;",
     "JWT_SECRET": "replace-with-32-plus-character-random-string",
+
+    "APP_URL": "http://localhost:5173",
+
+    "EMAIL_PROVIDER": "graph",
+    "GRAPH_TENANT_ID": "<entra-tenant-id-of-the-mailbox-org>",
+    "GRAPH_CLIENT_ID": "<app-registration-client-id-with-Mail.Send>",
+    "GRAPH_CLIENT_SECRET": "<app-registration-client-secret>",
+    "GRAPH_SENDER_ADDRESS": "passport@<your-m365-domain>",
+    "EMAIL_FROM_NAME": "IPELRA Conference Passport",
+
     "ACS_CONNECTION_STRING": "endpoint=https://<your-acs>.communication.azure.com/;accesskey=<key>",
     "ACS_SENDER_ADDRESS": "DoNotReply@<your-managed-domain>.azurecomm.net",
 

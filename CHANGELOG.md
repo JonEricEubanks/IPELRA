@@ -7,6 +7,50 @@
 
 ---
 
+## [2026-09-16] — Email sending moved to Microsoft Graph (M365 mailbox); honest send errors; inline logo
+
+### Why
+
+The app sent all mail through Azure Communication Services on a Microsoft **test** domain
+(`…azurecomm.net`), which Microsoft caps at **5 emails/minute, 10 per hour**, non-negotiable. On
+conference morning ~150 of 160 attendees would never have received a login link. Found during
+load planning for a 40-person dry run.
+
+### Changed
+
+- **`api/src/lib/email.js`** now has a provider switch (`EMAIL_PROVIDER=graph|acs`). `graph` sends
+  via Microsoft Graph `POST /users/{mailbox}/sendMail` using an Entra app registration with the
+  `Mail.Send` application permission (client-credentials; token cached per instance). `acs` is
+  the original path, retained as an automatic **fallback** if the primary throws. Display name
+  is `EMAIL_FROM_NAME` (default "IPELRA Conference Passport").
+- **Logo embedded inline** (`cid:` attachment from `api/src/lib/assets/logo-text.png`) on both
+  providers, so it renders in Outlook and corporate clients that block remote images.
+- **`POST /api/auth/sendMagicLink` now awaits the send.** If every provider fails it returns
+  **502** with a user-facing message; the login page shows it instead of a false "check your
+  inbox". Success message no longer hedges ("If that email is valid…").
+- **Readiness check** `acs_sender` → `email_provider`: reports the active provider + sender, and
+  goes red if the primary is ACS on a test domain.
+- Provisioned in the `Community-Essentials.com` tenant: app registration **IPELRA Passport Mailer**
+  (`dda92421-…`), `Mail.Send` consented, 1-year secret; Function App settings `EMAIL_PROVIDER`,
+  `GRAPH_*`, `EMAIL_FROM_NAME`. Sender is `jeubanks@Community-Essentials.com` for now.
+- **`docs/EMAIL-SENDING.md`** — how it works, how to swap the sender mailbox (same tenant = one
+  setting; different tenant = 10-minute app-registration recipe), secret rotation, Exchange
+  application-access-policy hardening (needs an interactive run), revert-to-ACS.
+- README env table, post-deploy step 1, troubleshooting, and the capacity table (which wrongly
+  claimed "no hard rate limit") updated. `local.settings.json.example` gains the new keys and
+  `APP_URL=http://localhost:5173` so local test links open the dev server.
+
+### Tests
+
+- New `email.test.js` (6: provider order, Graph payload incl. inline logo, token caching,
+  graph→acs fallback, total failure surfaces error) and `sendMagicLink.test.js` (4: 200 only
+  after accepted send, 502 on total failure, multi-token retention, 400 on bad email).
+  `LoginPage.test.jsx` covers the 502 and 429 messages. Totals: 69 frontend, 83 backend.
+- Verified live: three real emails delivered to the sender mailbox via Graph (local ×2,
+  **production ×1, 1.35 s incl. cold start**).
+
+---
+
 ## [2026-09-16] — Answer-attempt messaging, table nudges, and sponsor content checks
 
 From a second round of tester feedback on the Workday question.

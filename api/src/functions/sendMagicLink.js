@@ -104,15 +104,20 @@ app.http('sendMagicLink', {
     await upsertAttendee(attendee);
 
     // ── Send magic link email ─────────────────────────────────────────────
-    // Fire and forget — we don't block the response on ACS polling
-    // If ACS fails the attendee can request another link; failure is logged by App Insights
-    sendMagicLinkEmail(email, rawToken, firstName, next).catch(err => {
-      console.error('[sendMagicLink] ACS email send failed:', err.message);
-    });
+    // Awaited on purpose. If every configured provider fails, the attendee
+    // gets a real error instead of a false "check your inbox". (Graph accepts
+    // in ~300ms; ACS polling is the slow path and is only the fallback.)
+    try {
+      await sendMagicLinkEmail(email, rawToken, firstName, next);
+    } catch (err) {
+      console.error('[sendMagicLink] email send failed for', email, '-', err.message);
+      return json(502, {
+        error: 'We couldn\u2019t send your login email just now. Please try again in a moment \u2014 or ask at the registration desk.',
+      });
+    }
 
     // ── Respond ───────────────────────────────────────────────────────────
-    // Always return the same message regardless of whether the email existed
-    // to prevent email enumeration
-    return json(200, { message: 'If that email is valid, a login link is on its way. Check your inbox (and spam folder).' });
+    // Same message whether or not the email existed before — no enumeration
+    return json(200, { message: 'Your login link is on its way. Check your inbox (and spam folder).' });
   },
 });

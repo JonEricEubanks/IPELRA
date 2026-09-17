@@ -54,14 +54,30 @@ app.http('adminReadiness', {
         : `Too short or not set (${jwtSecret.length} chars — minimum 32)`,
     });
 
-    // 4. ACS configuration
+    // 4. Email provider
+    const provider  = (process.env.EMAIL_PROVIDER ?? '').toLowerCase();
+    const graphOk   = !!(process.env.GRAPH_TENANT_ID && process.env.GRAPH_CLIENT_ID && process.env.GRAPH_CLIENT_SECRET && process.env.GRAPH_SENDER_ADDRESS);
     const acsSender = process.env.ACS_SENDER_ADDRESS ?? '';
-    checks.push({
-      id:      'acs_sender',
-      label:   'ACS sender address',
-      status:  acsSender.includes('@') ? 'ok' : 'error',
-      detail:  acsSender || 'ACS_SENDER_ADDRESS not set',
-    });
+    const acsOk     = acsSender.includes('@') && !!process.env.ACS_CONNECTION_STRING;
+    const acsIsTestDomain = /\.azurecomm\.net$/i.test(acsSender);
+    let emailStatus, emailDetail;
+    if (provider === 'graph' && graphOk) {
+      emailStatus = 'ok';
+      emailDetail = `Microsoft Graph, sending as ${process.env.GRAPH_SENDER_ADDRESS}${acsOk ? ' (ACS fallback configured)' : ''}`;
+    } else if (provider === 'graph') {
+      emailStatus = 'error';
+      emailDetail = 'EMAIL_PROVIDER=graph but GRAPH_* settings are incomplete';
+    } else if (acsOk && acsIsTestDomain) {
+      emailStatus = 'error';
+      emailDetail = `ACS on an Azure-managed test domain (${acsSender}) — capped at 10 emails/hour. Set EMAIL_PROVIDER=graph for the conference. See docs/EMAIL-SENDING.md.`;
+    } else if (acsOk) {
+      emailStatus = 'ok';
+      emailDetail = `ACS, sending as ${acsSender}`;
+    } else {
+      emailStatus = 'error';
+      emailDetail = 'No email provider configured';
+    }
+    checks.push({ id: 'email_provider', label: 'Email sending', status: emailStatus, detail: emailDetail });
 
     // 5. Admin emails
     const adminEmails = (process.env.ADMIN_EMAILS ?? '').split(',').map(e => e.trim()).filter(Boolean);

@@ -155,8 +155,14 @@ node seedSponsors.js
 |---|---|---|---|
 | `COSMOS_CONNECTION_STRING` | ✅ | Cosmos DB account connection string | `AccountEndpoint=https://...` |
 | `JWT_SECRET` | ✅ | ≥32 char random string — signs attendee JWTs | See generate command below |
-| `ACS_CONNECTION_STRING` | ✅ | Azure Communication Services connection string | `endpoint=https://...` |
-| `ACS_SENDER_ADDRESS` | ✅ | Verified sender address | `passport@<domain>` |
+| `EMAIL_PROVIDER` | ✅ | `graph` (production) or `acs` (dev/test, 10 emails/hour). See [docs/EMAIL-SENDING.md](docs/EMAIL-SENDING.md) | `graph` |
+| `GRAPH_TENANT_ID` | for `graph` | Entra tenant ID of the sending mailbox's org | `ce08ca1a-…` |
+| `GRAPH_CLIENT_ID` | for `graph` | App registration (client) ID with `Mail.Send` app permission | `dda92421-…` |
+| `GRAPH_CLIENT_SECRET` | for `graph` | App registration client secret | — |
+| `GRAPH_SENDER_ADDRESS` | for `graph` | M365 mailbox to send as | `passport@ipelra.org` |
+| `EMAIL_FROM_NAME` | optional | Display name in the inbox | `IPELRA Conference Passport` |
+| `ACS_CONNECTION_STRING` | fallback | Azure Communication Services connection string | `endpoint=https://...` |
+| `ACS_SENDER_ADDRESS` | fallback | ACS sender address | `DoNotReply@<domain>` |
 | `ADMIN_EMAILS` | ✅ | Comma-separated Google emails for admin access | `angie@ipelra.org,mgp@example.com` |
 | `COMPLETION_THRESHOLD_POINTS` | ✅ | Points needed to complete passport | `1000` |
 | `EXPORT_SECRET` | ✅ | Random token for emergency CSV export | See generate command below |
@@ -254,14 +260,18 @@ npx @azure/static-web-apps-cli deploy "dist" `
 
 Complete these **after the first successful deploy**. All are required before going live.
 
-### 1 — Configure ACS Email sender domain
+### 1 — Configure the sending mailbox
 
-1. In Azure Portal → ACS resource → Email → Domains
-2. Add your custom domain (e.g. `mgpsolutions.com`)
-3. Add the SPF, DKIM, and DMARC DNS records to your DNS registrar
-4. Click **Verify** in the portal
-5. Update `ACS_SENDER_ADDRESS` in Function App settings to use the verified domain
-6. Send a test magic link and confirm delivery + not in spam folder
+Emails are sent through **Microsoft Graph as a real Microsoft 365 mailbox** (30/min,
+10k/day). The original ACS-on-a-test-domain path is capped at **10 emails/hour** and
+is kept only as a fallback. Full setup, tenant-switch, and hardening steps are in
+[docs/EMAIL-SENDING.md](docs/EMAIL-SENDING.md). In short:
+
+1. Create an app registration in the mailbox's Entra tenant with the `Mail.Send`
+   **application** permission and grant admin consent
+2. Set `GRAPH_TENANT_ID`, `GRAPH_CLIENT_ID`, `GRAPH_CLIENT_SECRET`, `GRAPH_SENDER_ADDRESS`,
+   `EMAIL_PROVIDER=graph` on the Function App
+3. Send a test magic link and confirm delivery + not in spam folder
 
 ### 2 — Set CORS on Function App
 
@@ -375,10 +385,10 @@ Run this checklist **at least 48 hours before October 5, 2026**.
 
 ### Magic link email not arriving
 
-1. Check ACS email logs: Azure Portal → Communication Services → Email → Message Status
-2. Verify `ACS_SENDER_ADDRESS` matches the verified domain exactly
-3. Check attendee spam folder
-4. Confirm SPF/DKIM records are published and verified in ACS portal
+1. Admin portal → Export → **System status** → check the **Email sending** line (provider + sender, red if misconfigured)
+2. Application Insights (`appi-ipelra-passport`) → search traces for `[email]` — a failed Graph send logs the HTTP status and reason
+3. If the attendee saw *"We couldn't send your login email"*, every provider failed — check `GRAPH_CLIENT_SECRET` hasn't expired (see [docs/EMAIL-SENDING.md](docs/EMAIL-SENDING.md#rotating-the-client-secret))
+4. Check attendee spam folder; confirm the sending mailbox's domain has SPF/DKIM in M365
 
 ### Admin login not working (401 / link invalid)
 
@@ -421,7 +431,8 @@ This app is built on Azure's consumption and serverless tiers, which scale autom
 | Static Web App (frontend) | Azure CDN — globally distributed | Effectively unlimited |
 | Azure Functions (API) | Auto-scales up to 200 parallel instances | Handles thousands of concurrent requests |
 | Cosmos DB (Serverless) | Elastic RU burst — no provisioned throughput | Scales on demand per request |
-| ACS Email | Pay-per-send, no pre-provisioning | No hard rate limit at this volume |
+| Email (Microsoft Graph, M365 mailbox) | 30 msgs/min · 10,000 recipients/day per mailbox | ~400 emails/day expected — comfortable |
+| ACS Email (fallback only) | Azure-managed test domain | **Capped at 10 emails/hour — not viable as primary** |
 
 ### Expected peak load at IPELRA (160 attendees)
 
