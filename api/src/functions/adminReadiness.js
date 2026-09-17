@@ -12,6 +12,8 @@
 import { app } from '@azure/functions';
 import { requireAdminAuth, forbiddenResponse } from '../lib/auth.js';
 import { getAllSponsors, getAllAttendees } from '../lib/cosmos.js';
+import { findPlaceholderIssues } from '../lib/sponsorContent.js';
+import { jsonResponse as json } from '../lib/http.js';
 
 app.http('adminReadiness', {
   methods: ['GET'],
@@ -102,6 +104,17 @@ app.http('adminReadiness', {
       });
     }
 
+    // 6b. Placeholder / template text left in sponsor copy
+    const contentProblems = activeSponsors.flatMap(s => findPlaceholderIssues(s).map(i => `${s.name}: ${i}`));
+    checks.push({
+      id:      'sponsor_content',
+      label:   'Sponsor questions are ready to show attendees',
+      status:  contentProblems.length === 0 ? 'ok' : 'error',
+      detail:  contentProblems.length === 0
+        ? 'No placeholder text found in active sponsor questions'
+        : contentProblems.join(' · '),
+    });
+
     // 7. Test attendee exists
     let attendees = [];
     try {
@@ -132,9 +145,6 @@ app.http('adminReadiness', {
     const overallStatus = checks.some(c => c.status === 'error') ? 'error'
       : checks.some(c => c.status === 'warn') ? 'warn' : 'ok';
 
-    return new Response(
-      JSON.stringify({ checks, overallStatus, asOf: new Date().toISOString() }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+    return json(200, { checks, overallStatus, asOf: new Date().toISOString() });
   },
 });

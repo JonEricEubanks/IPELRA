@@ -1,204 +1,88 @@
-﻿/**
+/**
  * AdminAttendeePage.jsx — /admin/attendees
- * Roster tab (all attendees w/ filter) + Search tab (email lookup + manual credit).
+ *
+ * Roster loads immediately. Type to filter by name or email, chip-filter by
+ * status, click any row for a side drawer with their check-in history and a
+ * manual-credit form (sponsor picked from a dropdown — no IDs to paste).
  */
 
-import { useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import AdminLayout from '../components/AdminLayout';
-import { adminGetAttendee, adminListAttendees, adminManualCredit } from '../api';
-import { CheckCircle2, RefreshCw } from 'lucide-react';
+import { adminGetAttendee, adminListAttendees, adminManualCredit, adminGetSponsors } from '../api';
+import { Search, X, RefreshCw, CheckCircle2, PlusCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const FILTER_TABS = [
-  { key: 'all',       label: 'All' },
+const FILTERS = [
+  { key: 'all',       label: 'Everyone' },
   { key: 'completed', label: 'Completed' },
-  { key: 'active',    label: 'Active' },
-  { key: 'pending',   label: 'Not Started' },
+  { key: 'active',    label: 'In progress' },
+  { key: 'pending',   label: 'Not started' },
 ];
 
-function TabBar({ active, onChange }) {
-  return (
-    <div style={{ display: 'flex', gap: 8, marginBottom: 'var(--space-4)', borderBottom: '2px solid var(--color-border)', paddingBottom: 0 }}>
-      {[{ key: 'roster', label: 'All Attendees' }, { key: 'search', label: 'Search / Credit' }].map(t => (
-        <button
-          key={t.key}
-          onClick={() => onChange(t.key)}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            padding: '8px 16px', fontWeight: active === t.key ? 800 : 500,
-            fontSize: 14,
-            color: active === t.key ? 'var(--color-primary)' : 'var(--color-text-2)',
-            borderBottom: active === t.key ? '2px solid var(--color-primary)' : '2px solid transparent',
-            marginBottom: -2,
-          }}
-        >
-          {t.label}
-        </button>
-      ))}
-    </div>
-  );
+function statusOf(a) {
+  if (a.completed) return 'done';
+  if ((a.stampCount ?? 0) > 0 || (a.points ?? 0) > 0) return 'active';
+  return 'pending';
 }
 
-// ── Roster tab ────────────────────────────────────────────────────────────────
-function RosterTab() {
-  const [filter, setFilter] = useState('all');
-  const [attendees, setAttendees] = useState([]);
-  const [total, setTotal] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+function StatusPill({ attendee }) {
+  const s = statusOf(attendee);
+  if (s === 'done')   return <span className="pill pill--done"><CheckCircle2 size={12} /> Completed</span>;
+  if (s === 'active') return <span className="pill pill--active">In progress</span>;
+  return <span className="pill pill--pending">Not started</span>;
+}
 
-  const load = useCallback(async (f = filter) => {
+function fullName(a) {
+  return [a.firstName, a.lastName].filter(Boolean).join(' ') || '—';
+}
+
+// ── Drawer ────────────────────────────────────────────────────────────────────
+
+function AttendeeDrawer({ email, sponsors, onClose, onChanged }) {
+  const [attendee, setAttendee] = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [sponsorId, setSponsorId] = useState('');
+  const [note, setNote]           = useState('');
+  const [crediting, setCrediting] = useState(false);
+
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await adminListAttendees(f);
-      setAttendees(data.attendees ?? []);
-      setTotal(data.total ?? 0);
-      setLoaded(true);
+      setAttendee(await adminGetAttendee(email));
     } catch {
-      toast.error('Failed to load attendees.');
+      toast.error('Could not load this attendee.');
+      onClose();
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [email, onClose]);
 
-  function changeFilter(f) {
-    setFilter(f);
-    load(f);
-  }
+  useEffect(() => { load(); }, [load]);
 
-  return (
-    <div>
-      {/* Filter + Load */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)', flexWrap: 'wrap', gap: 8 }}>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {FILTER_TABS.map(t => (
-            <button
-              key={t.key}
-              onClick={() => changeFilter(t.key)}
-              style={{
-                padding: '5px 14px', borderRadius: 999, fontSize: 13, fontWeight: 600,
-                cursor: 'pointer', border: '1.5px solid',
-                borderColor: filter === t.key ? 'var(--color-primary)' : 'var(--color-border)',
-                background: filter === t.key ? 'var(--color-primary)' : '#fff',
-                color: filter === t.key ? '#fff' : 'var(--color-text)',
-              }}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <button className="btn btn-ghost btn-sm" onClick={() => load(filter)} disabled={loading}>
-          {loading ? '…' : <><RefreshCw size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />Load</>}
-        </button>
-      </div>
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') onClose(); }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
-      {!loaded && !loading && (
-        <div className="card" style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--color-text-2)' }}>
-          Click <strong>Load</strong> to fetch the attendee roster.
-        </div>
-      )}
-
-      {loading && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-          {[1, 2, 3, 4, 5].map(i => <div key={i} className="skeleton" style={{ height: 48, borderRadius: 'var(--radius-md)' }} />)}
-        </div>
-      )}
-
-      {loaded && !loading && (
-        <>
-          <div style={{ fontSize: 13, color: 'var(--color-text-2)', marginBottom: 'var(--space-3)' }}>
-            {total} attendee{total !== 1 ? 's' : ''}
-          </div>
-          <div className="admin-table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th style={{ textAlign: 'right' }}>Points</th>
-                  <th style={{ textAlign: 'center' }}>Stops</th>
-                  <th style={{ textAlign: 'center' }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {attendees.map(a => (
-                  <tr key={a.id}>
-                    <td style={{ fontWeight: 600 }}>{a.firstName} {a.lastName}</td>
-                    <td style={{ color: 'var(--color-text-2)', fontSize: 13 }}>{a.email}</td>
-                    <td style={{ textAlign: 'right', fontWeight: 700 }}>{a.points}</td>
-                    <td style={{ textAlign: 'center' }}>{a.stampCount}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      {a.completed ? (
-                        <span style={{ background: 'var(--color-success-bg)', color: 'var(--color-success-dark)', borderRadius: 999, padding: '3px 10px', fontSize: 12, fontWeight: 700 }}>
-                          ✓ Done
-                        </span>
-                      ) : a.points > 0 ? (
-                        <span style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)', borderRadius: 999, padding: '3px 10px', fontSize: 12, fontWeight: 700 }}>
-                          Active
-                        </span>
-                      ) : (
-                        <span style={{ background: '#f1f5f9', color: '#64748b', borderRadius: 999, padding: '3px 10px', fontSize: 12, fontWeight: 600 }}>
-                          Pending
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {attendees.length === 0 && (
-                  <tr>
-                    <td colSpan={5} style={{ textAlign: 'center', color: 'var(--color-text-2)', padding: 'var(--space-5)' }}>
-                      No attendees in this category.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-// ── Search / Credit tab ───────────────────────────────────────────────────────
-function SearchTab() {
-  const [query, setQuery] = useState('');
-  const [searching, setSearching] = useState(false);
-  const [attendee, setAttendee] = useState(null);
-  const [notFound, setNotFound] = useState(false);
-
-  const [creditSponsorId, setCreditSponsorId] = useState('');
-  const [creditNote, setCreditNote] = useState('');
-  const [crediting, setCrediting] = useState(false);
-
-  async function handleSearch(e) {
-    e.preventDefault();
-    if (!query.trim()) return;
-    setSearching(true);
-    setNotFound(false);
-    setAttendee(null);
-    try {
-      const data = await adminGetAttendee(query.trim());
-      setAttendee(data);
-    } catch (err) {
-      if (err?.status === 404) setNotFound(true);
-      else toast.error('Lookup failed. Try again.');
-    } finally {
-      setSearching(false);
-    }
-  }
+  const stamped = new Set(attendee?.completedStamps ?? []);
+  const creditable = sponsors.filter(s => s.isActive && !stamped.has(s.id));
+  const history = (attendee?.checkins ?? [])
+    .filter(c => !c.failed)
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
   async function handleCredit(e) {
     e.preventDefault();
-    if (!creditSponsorId.trim()) return;
+    if (!sponsorId) return;
     setCrediting(true);
     try {
-      const res = await adminManualCredit(attendee.id, attendee.email, creditSponsorId.trim(), creditNote.trim());
-      toast.success(`Credited. New total: ${res.totalPoints ?? res.points} pts`);
-      setCreditSponsorId('');
-      setCreditNote('');
-      const refreshed = await adminGetAttendee(query.trim());
-      setAttendee(refreshed);
+      const res = await adminManualCredit(attendee.id, attendee.email, sponsorId, note.trim());
+      const s = sponsors.find(x => x.id === sponsorId);
+      toast.success(`Credited ${s?.name ?? 'sponsor'} — now ${res.totalPoints ?? res.points} pts${res.isComplete ? ' · passport complete!' : ''}`);
+      setSponsorId('');
+      setNote('');
+      await load();
+      onChanged?.();
     } catch (err) {
       toast.error(err?.message ?? 'Credit failed.');
     } finally {
@@ -207,112 +91,237 @@ function SearchTab() {
   }
 
   return (
-    <div>
-      {/* Search form */}
-      <form onSubmit={handleSearch} style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-5)' }}>
-        <input
-          className="form-input"
-          style={{ flex: 1 }}
-          placeholder="Search by email or name"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-        />
-        <button className="btn btn-primary" type="submit" disabled={searching}>
-          {searching ? '…' : 'Search'}
-        </button>
-      </form>
+    <>
+      <div className="drawer-backdrop" onClick={onClose} />
+      <aside className="drawer" role="dialog" aria-modal="true" aria-label="Attendee details">
+        <div className="drawer__head">
+          <div style={{ minWidth: 0 }}>
+            {loading || !attendee ? (
+              <div className="skeleton" style={{ height: 44, width: 220, borderRadius: 10 }} />
+            ) : (
+              <>
+                <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 20, letterSpacing: '-0.3px' }}>{fullName(attendee)}</div>
+                <div style={{ color: 'var(--color-on-surface-muted)', fontSize: 13, marginTop: 2, wordBreak: 'break-all' }}>{attendee.email}</div>
+              </>
+            )}
+          </div>
+          <button className="drawer__close" onClick={onClose} aria-label="Close"><X size={18} /></button>
+        </div>
 
-      {notFound && <div style={{ color: 'var(--color-text-2)', padding: 'var(--space-4)' }}>No attendee found for "{query}".</div>}
-
-      {attendee && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-          {/* Profile */}
-          <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 18 }}>{attendee.firstName} {attendee.lastName}</div>
-                <div style={{ color: 'var(--color-text-2)', fontSize: 14 }}>{attendee.email}</div>
+        {attendee && (
+          <div className="drawer__body">
+            {/* Summary */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+              <div className="dash-card" style={{ padding: 14, borderRadius: 14 }}>
+                <div className="hero-stat__label">Points</div>
+                <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 26, marginTop: 4 }}>{attendee.points ?? 0}</div>
               </div>
-              <div style={{
-                background: attendee.completed ? 'var(--color-success-bg)' : 'var(--color-primary-light)',
-                color: attendee.completed ? 'var(--color-success-dark)' : 'var(--color-primary)',
-                borderRadius: 999, padding: '6px 16px', fontWeight: 800, fontSize: 15,
-              }}>
-                {attendee.points} pts {attendee.completed ? <CheckCircle2 size={14} color="var(--color-success-dark)" style={{ verticalAlign: 'middle' }} /> : null}
+              <div className="dash-card" style={{ padding: 14, borderRadius: 14 }}>
+                <div className="hero-stat__label">Stops</div>
+                <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 26, marginTop: 4 }}>{stamped.size}</div>
+              </div>
+              <div className="dash-card" style={{ padding: 14, borderRadius: 14, justifyContent: 'center', alignItems: 'flex-start' }}>
+                <div className="hero-stat__label" style={{ marginBottom: 6 }}>Status</div>
+                <StatusPill attendee={{ completed: attendee.completed, stampCount: stamped.size, points: attendee.points }} />
               </div>
             </div>
-            <div style={{ marginTop: 'var(--space-4)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', fontSize: 14 }}>
-              <div><strong>Registered:</strong> {new Date(attendee.createdAt).toLocaleDateString()}</div>
-              <div><strong>Check-ins:</strong> {attendee.checkins?.length ?? 0}</div>
-              {attendee.completed && (
-                <div style={{ gridColumn: '1/-1' }}>
-                  <strong>Completed:</strong> {new Date(attendee.completedAt).toLocaleString()}
-                </div>
+
+            <div style={{ fontSize: 13, color: 'var(--color-on-surface-var)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div>Registered {attendee.createdAt ? new Date(attendee.createdAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</div>
+              {attendee.completed && attendee.completedAt && (
+                <div style={{ color: '#065f46', fontWeight: 600 }}>Completed {new Date(attendee.completedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</div>
               )}
             </div>
-          </div>
 
-          {/* Check-in history */}
-          {attendee.checkins?.length > 0 && (
-            <div className="card">
-              <h3 style={{ fontWeight: 700, marginBottom: 'var(--space-3)' }}>Check-in History</h3>
-              <div className="admin-table-wrap">
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Sponsor</th>
-                      <th style={{ textAlign: 'right' }}>Pts</th>
-                      <th>Time</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {attendee.checkins.map((c, i) => (
-                      <tr key={i}>
-                        <td>{c.sponsorName ?? c.sponsorId}</td>
-                        <td style={{ textAlign: 'right' }}>{c.points}</td>
-                        <td style={{ color: 'var(--color-text-2)', fontSize: 13 }}>
-                          {new Date(c.timestamp).toLocaleString()}
-                          {c.isManual ? <span style={{ marginLeft: 6, color: '#254a84', fontWeight: 700 }}>manual</span> : null}
-                        </td>
-                      </tr>
+            {/* History */}
+            <section>
+              <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 15, marginBottom: 8 }}>Check-in history</h3>
+              {history.length === 0 ? (
+                <div className="empty-mini" style={{ padding: '16px 8px' }}>No stops collected yet.</div>
+              ) : (
+                <div className="feed">
+                  {history.map((c, i) => (
+                    <div key={c.id ?? i} className="feed__row" style={{ animation: 'none' }}>
+                      <div className="feed__body">
+                        <div className="feed__title">{c.sponsorName ?? c.sponsorId}</div>
+                        <div className="feed__meta">
+                          {new Date(c.timestamp).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                          {c.manualCredit && <> · <span className="pill pill--manual" style={{ padding: '1px 7px', fontSize: 10 }}>manual{c.manualCreditBy ? ` · ${c.manualCreditBy}` : ''}</span></>}
+                        </div>
+                        {c.manualCreditNote && <div className="feed__meta" style={{ fontStyle: 'italic' }}>“{c.manualCreditNote}”</div>}
+                      </div>
+                      <div className="feed__pts">+{c.pointsAwarded ?? c.points ?? 0}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* Manual credit */}
+            <section className="dash-card" style={{ padding: 16, borderRadius: 16, background: 'var(--color-surface-low)' }}>
+              <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 15, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <PlusCircle size={16} /> Give credit for a stop
+              </h3>
+              <p style={{ fontSize: 13, color: 'var(--color-on-surface-var)', marginBottom: 12 }}>
+                Use this when someone clearly visited a table but the app didn't record it.
+              </p>
+              {creditable.length === 0 ? (
+                <div style={{ fontSize: 13, color: 'var(--color-on-surface-muted)' }}>This attendee already has every active sponsor stop.</div>
+              ) : (
+                <form onSubmit={handleCredit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <select className="form-input" value={sponsorId} onChange={e => setSponsorId(e.target.value)} required aria-label="Sponsor">
+                    <option value="">Choose a sponsor…</option>
+                    {creditable.map(s => (
+                      <option key={s.id} value={s.id}>{s.name} · {Number(s.pointValue) || 0} pts</option>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Manual credit */}
-          <div className="card">
-            <h3 style={{ fontWeight: 700, marginBottom: 'var(--space-3)' }}>Manual Credit</h3>
-            <form onSubmit={handleCredit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Sponsor ID *</label>
-                <input className="form-input" value={creditSponsorId} onChange={e => setCreditSponsorId(e.target.value)} placeholder="Paste sponsor ID" required />
-              </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Note (optional)</label>
-                <input className="form-input" value={creditNote} onChange={e => setCreditNote(e.target.value)} placeholder="e.g. badge scanner issue" />
-              </div>
-              <button className="btn btn-primary" type="submit" disabled={crediting}>
-                {crediting ? 'Applying…' : 'Apply Credit'}
-              </button>
-            </form>
+                  </select>
+                  <input className="form-input" value={note} onChange={e => setNote(e.target.value)} placeholder="Why? (optional, e.g. “rep confirmed at table”)" />
+                  <button className="btn btn-primary" type="submit" disabled={!sponsorId || crediting}>
+                    {crediting ? 'Applying…' : 'Apply credit'}
+                  </button>
+                </form>
+              )}
+            </section>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </aside>
+    </>
   );
 }
 
+// ── Page ──────────────────────────────────────────────────────────────────────
+
 export default function AdminAttendeePage() {
-  const [tab, setTab] = useState('roster');
+  const [attendees, setAttendees] = useState([]);
+  const [sponsors, setSponsors]   = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [filter, setFilter]       = useState('all');
+  const [query, setQuery]         = useState('');
+  const [selected, setSelected]   = useState(null); // email
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [{ attendees: list }, { sponsors: sp }] = await Promise.all([
+        adminListAttendees('all'),
+        adminGetSponsors(),
+      ]);
+      setAttendees(list ?? []);
+      setSponsors(sp ?? []);
+    } catch {
+      toast.error('Could not load attendees.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const counts = useMemo(() => ({
+    all:       attendees.length,
+    completed: attendees.filter(a => statusOf(a) === 'done').length,
+    active:    attendees.filter(a => statusOf(a) === 'active').length,
+    pending:   attendees.filter(a => statusOf(a) === 'pending').length,
+  }), [attendees]);
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return attendees
+      .filter(a => filter === 'all'
+        || (filter === 'completed' && statusOf(a) === 'done')
+        || (filter === 'active'    && statusOf(a) === 'active')
+        || (filter === 'pending'   && statusOf(a) === 'pending'))
+      .filter(a => !q || fullName(a).toLowerCase().includes(q) || (a.email ?? '').toLowerCase().includes(q));
+  }, [attendees, filter, query]);
+
+  const closeDrawer = useCallback(() => setSelected(null), []);
 
   return (
-    <AdminLayout>
-      <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 'var(--space-5)' }}>Attendees</h1>
-      <TabBar active={tab} onChange={setTab} />
-      {tab === 'roster' ? <RosterTab /> : <SearchTab />}
+    <AdminLayout
+      title="Attendees"
+      subtitle={loading ? 'Loading roster…' : `${attendees.length} registered · ${counts.completed} completed`}
+      actions={
+        <button className="btn btn-ghost btn-sm" onClick={load} disabled={loading}>
+          <RefreshCw size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />Refresh
+        </button>
+      }
+    >
+      {/* Search + filters */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ position: 'relative', flex: '1 1 260px', maxWidth: 420 }}>
+          <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-on-surface-muted)' }} />
+          <input
+            className="form-input"
+            style={{ paddingLeft: 36, width: '100%' }}
+            placeholder="Search by name or email"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            aria-label="Search attendees"
+          />
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {FILTERS.map(f => (
+            <button key={f.key} className={`filter-chip${filter === f.key ? ' is-active' : ''}`} onClick={() => setFilter(f.key)}>
+              {f.label} <span style={{ opacity: 0.7, fontWeight: 500 }}>· {counts[f.key]}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="skeleton" style={{ height: 52, borderRadius: 12 }} />)}
+        </div>
+      ) : (
+        <div className="dash-card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th style={{ textAlign: 'right' }}>Points</th>
+                  <th style={{ textAlign: 'center' }}>Stops</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map(a => (
+                  <tr
+                    key={a.id}
+                    className="clickable-row"
+                    tabIndex={0}
+                    onClick={() => setSelected(a.email)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelected(a.email); } }}
+                  >
+                    <td style={{ fontWeight: 600 }}>{fullName(a)}</td>
+                    <td style={{ color: 'var(--color-on-surface-var)', fontSize: 13 }}>{a.email}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 700, fontFamily: 'Manrope, sans-serif' }}>{a.points ?? 0}</td>
+                    <td style={{ textAlign: 'center' }}>{a.stampCount ?? 0}</td>
+                    <td><StatusPill attendee={a} /></td>
+                  </tr>
+                ))}
+                {visible.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="empty-mini">
+                      {attendees.length === 0 ? 'No one has registered yet.' : 'No attendees match that search.'}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {selected && (
+        <AttendeeDrawer
+          email={selected}
+          sponsors={sponsors}
+          onClose={closeDrawer}
+          onChanged={load}
+        />
+      )}
     </AdminLayout>
   );
 }

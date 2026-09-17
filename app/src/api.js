@@ -7,24 +7,45 @@
 // In production, VITE_API_BASE_URL points to the deployed Function App
 const BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
-function getToken(path) {
-  if (path && path.startsWith('/api/mgmt/')) {
-    return localStorage.getItem('admin_token') ?? sessionStorage.getItem('admin_token');
+const ADMIN_PREFIX = '/api/mgmt/';
+
+/** Thrown when the API rejects our session; the page is already navigating to login. */
+export class SessionExpiredError extends Error {
+  constructor(status) {
+    super('Your session has expired. Please sign in again.');
+    this.name = 'SessionExpiredError';
+    this.status = status;
   }
-  return localStorage.getItem('passport_token') ?? sessionStorage.getItem('passport_token');
+}
+
+function isAdminPath(path) {
+  return Boolean(path && path.startsWith(ADMIN_PREFIX));
+}
+
+function getToken(path) {
+  const key = isAdminPath(path) ? 'admin_token' : 'passport_token';
+  return localStorage.getItem(key) ?? sessionStorage.getItem(key);
+}
+
+function clearToken(path) {
+  const key = isAdminPath(path) ? 'admin_token' : 'passport_token';
+  localStorage.removeItem(key);
+  sessionStorage.removeItem(key);
 }
 
 async function request(path, options = {}, _retries = 1) {
+  // Public auth endpoints return 401 to mean "bad link", not "session expired"
+  const { skipSessionRedirect = false, ...fetchOptions } = options;
   const token = getToken(path);
   const headers = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(options.headers ?? {}),
+    ...(fetchOptions.headers ?? {}),
   };
 
   let res;
   try {
-    res = await fetch(`${BASE}${path}`, { ...options, headers });
+    res = await fetch(`${BASE}${path}`, { ...fetchOptions, headers });
   } catch {
     // Network / cold-start failure — retry once after 2 s
     if (_retries > 0) {
@@ -34,41 +55,39 @@ async function request(path, options = {}, _retries = 1) {
     throw new Error('Could not reach the server. Please check your connection and try again.');
   }
 
-  if (res.status === 401 || res.status === 403) {
-    // Admin routes: redirect to admin login; attendee routes: redirect to /login
-    if (window.location.pathname.startsWith('/admin')) {
-      window.location.href = '/admin/login';
-    } else {
-      localStorage.removeItem('passport_token');
-      sessionStorage.removeItem('passport_token');
-      window.location.href = '/login';
-    }
-    return;
+  if (!skipSessionRedirect && (res.status === 401 || res.status === 403)) {
+    clearToken(path);
+    window.location.href = isAdminPath(path) ? '/admin/login' : '/login';
+    throw new SessionExpiredError(res.status);
   }
 
   return res;
 }
 
-// ── Admin Auth ───────────────────────────────────────────────────────────────
+/** Throws with the server's error message (or fallbackMessage) if res is not ok. */
+async function throwIfNotOk(res, fallbackMessage) {
+  if (res.ok) return res;
+  const data = await res.json().catch(() => ({}));
+  const err = new Error(data.error || fallbackMessage);
+  err.status = res.status;
+  throw err;
+}
+
 export async function adminSendMagicLink(email) {
-  const res = await fetch(`${BASE}/api/mgmt/auth/sendLink`, {
+  const res = await request('/api/mgmt/auth/sendLink', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
+    skipSessionRedirect: true,
   });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || `Server error (${res.status})`);
-  }
+  await throwIfNotOk(res, `Server error (${res.status})`);
   return res.json();
 }
 
 export async function adminVerifyToken(token) {
-  const res = await fetch(`${BASE}/api/mgmt/auth/verify?token=${encodeURIComponent(token)}`);
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || 'Link expired or invalid.');
-  }
+  const res = await request(`/api/mgmt/auth/verify?token=${encodeURIComponent(token)}`, {
+    skipSessionRedirect: true,
+  });
+  await throwIfNotOk(res, 'Link expired or invalid.');
   return res.json();
 }
 
@@ -77,23 +96,22 @@ export async function sendMagicLink(email, firstName, lastName, next = null) {
   return request('/api/auth/sendMagicLink', {
     method: 'POST',
     body: JSON.stringify({ email, firstName, lastName, ...(next ? { next } : {}) }),
+    skipSessionRedirect: true,
   });
 }
 
 export async function verifyToken(token) {
-  return request(`/api/auth/verify?token=${encodeURIComponent(token)}`);
+  return request(`/api/auth/verify?token=${encodeURIComponent(token)}`, { skipSessionRedirect: true });
 }
 
 // ── Passport ──────────────────────────────────────────────────────────────────
 export async function getSponsors() {
   const res = await request('/api/sponsors');
-  if (!res) return { sponsors: [], threshold: 0, passportLive: false };
   return res.json();
 }
 
 export async function getProgress() {
   const res = await request('/api/progress');
-  if (!res) return null;
   const data = await res.json();
   return {
     points:              data.attendee?.totalPoints ?? 0,
@@ -110,14 +128,15 @@ export async function getProgress() {
 }
 
 /**
- * Unlock a sponsor stop. `unlock` is either { answer } (prompt) or { qrCode } (QR scan).
+ * Unlock a sponsor stop by answering its prompt question — `unlock` is { answer }.
+ * Scanning a sponsor's QR code only deep-links to that sponsor's question
+ * (see ScanPage); it never bypasses answering.
  */
 export async function submitCheckin(sponsorId, unlock) {
   const res = await request('/api/checkin', {
     method: 'POST',
     body: JSON.stringify({ sponsorId, ...unlock }),
   });
-  if (!res) return null;
   const data = await res.json();
   if (!res.ok) {
     const err = new Error(data.message || data.error || 'Check-in failed');
@@ -130,7 +149,6 @@ export async function submitCheckin(sponsorId, unlock) {
 
 export async function getLeaderboard() {
   const res = await request('/api/leaderboard');
-  if (!res) return { rankings: [], myRank: null, totalParticipants: 0 };
   return res.json();
 }
 
@@ -139,11 +157,7 @@ export async function updateAttendeeName(firstName, lastName) {
     method: 'PATCH',
     body: JSON.stringify({ firstName, lastName }),
   });
-  if (!res) return null;
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || 'Failed to save name.');
-  }
+  await throwIfNotOk(res, 'Failed to save name.');
   return res.json();
 }
 
@@ -153,21 +167,28 @@ export async function updateAttendeeName(firstName, lastName) {
 export async function adminGetMetrics() {
   const res = await request('/api/mgmt/metrics');
   const data = await res.json();
+  const t = data.totals ?? {};
   return {
-    totalAttendees:   data.totals.registeredAttendees,
-    activeAttendees:  data.totals.registeredAttendees, // API doesn't separate active vs registered
-    completedCount:   data.totals.completedPassports,
-    completionRate:   data.completionRate,
-    totalCheckins:    data.totals.totalCheckins,
-    failedAttempts:   data.totals.failedAttempts,
-    activeSponsors:   data.totals.activeSponsors,
-    topSponsors: (data.topSponsors ?? []).map(s => ({
-      id:    s.sponsorId,
-      name:  s.sponsorName,
-      count: s.checkinCount,
-    })),
+    totalAttendees:    t.registeredAttendees ?? 0,
+    activeAttendees:   t.activeAttendees ?? 0,
+    completedCount:    t.completedPassports ?? 0,
+    completionRate:    data.completionRate ?? 0,
+    totalCheckins:     t.totalCheckins ?? 0,
+    checkinsToday:     t.checkinsToday ?? 0,
+    failedAttempts:    t.failedAttempts ?? 0,
+    manualCredits:     t.manualCredits ?? 0,
+    activeSponsors:    t.activeSponsors ?? 0,
+    totalSponsors:     t.totalSponsors ?? 0,
+    almostThere:       t.almostThere ?? 0,
+    passport:          data.passport ?? { live: false, closed: false, threshold: 0 },
+    hourly:            data.hourly ?? [],
+    sponsors:          data.sponsors ?? [],
+    funnel:            data.funnel ?? [],
+    recentCheckins:    data.recentCheckins ?? [],
     recentCompletions: data.recentCompletions ?? [],
-    asOf: data.asOf,
+    needsAttention:    data.needsAttention ?? [],
+    contentIssues:     data.contentIssues ?? [],
+    asOf:              data.asOf,
   };
 }
 
@@ -202,12 +223,7 @@ export async function adminPatchSponsor(id, patch) {
 
 export async function adminDeleteSponsor(id) {
   const res = await request(`/api/mgmt/sponsors/${id}`, { method: 'DELETE' });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    const err = new Error(data.error || 'Failed to delete sponsor');
-    err.status = res.status;
-    throw err;
-  }
+  await throwIfNotOk(res, 'Failed to delete sponsor');
 }
 
 export async function adminGetAttendee(email) {
@@ -227,9 +243,6 @@ export async function adminGetAttendee(email) {
   };
 }
 
-// Alias — some pages import under this name
-export const adminLookupAttendee = adminGetAttendee;
-
 export async function adminListAttendees(filter = 'all') {
   const res = await request(`/api/mgmt/attendees/list?filter=${encodeURIComponent(filter)}`);
   return res.json(); // { attendees: [...], total }
@@ -240,33 +253,32 @@ export async function adminManualCredit(attendeeId, attendeeEmail, sponsorId, no
     method: 'POST',
     body: JSON.stringify({ attendeeId, attendeeEmail, sponsorId, note }),
   });
-  const data = await res.json();
-  return { points: data.attendee?.totalPoints ?? 0, ...data };
-}
-
-export async function adminGetFlagged() {
-  const res = await request('/api/mgmt/flagged');
-  const data = await res.json();
-  return {
-    bySponsor: (data.flaggedBySize ?? []).map(g => ({
-      sponsorId:   g.sponsorId,
-      sponsorName: g.sponsorName,
-      entries: (g.entries ?? []).map(e => ({
-        email:           e.attendeeEmail,
-        answerSubmitted: e.answerSubmitted,
-        rejectedAnswers: e.rejectedAnswers ?? [],
-        failCount:       e.rejectedAnswers?.length ?? 0,
-        lastAttempt:     e.timestamp,
-        failed:          e.failed,
-      })),
-    })),
-    total: data.totalFlagged ?? 0,
-  };
+  await throwIfNotOk(res, 'Credit failed');
+  const data = await res.json(); // { message, pointsAwarded, totalPoints, isComplete }
+  return { points: data.totalPoints ?? 0, ...data };
 }
 
 export async function adminGetReadiness() {
   const res = await request('/api/mgmt/readiness');
-  return res.json(); // { checks: [...] }
+  return res.json(); // { checks: [...], overallStatus, asOf }
+}
+
+/**
+ * Wrong answers attendees typed at one sponsor's table — used on the sponsor
+ * edit page so staff can see *what* people are guessing before changing the keyword.
+ * Returns [{ email, rejectedAnswers: [], attemptCount, stuck, lastTried }]
+ */
+export async function adminGetSponsorWrongAnswers(sponsorId) {
+  const res = await request('/api/mgmt/flagged');
+  const data = await res.json();
+  const group = (data.flaggedBySize ?? []).find(g => g.sponsorId === sponsorId);
+  return (group?.entries ?? []).map(e => ({
+    email:           e.attendeeEmail,
+    rejectedAnswers: e.rejectedAnswers ?? [],
+    attemptCount:    e.attemptCount ?? (e.rejectedAnswers?.length ?? 0),
+    stuck:           e.failed === true && (e.attemptCount ?? 0) >= 3,
+    lastTried:       e.timestamp,
+  }));
 }
 
 export async function adminResetConference(confirmToken) {
@@ -274,13 +286,6 @@ export async function adminResetConference(confirmToken) {
     method: 'POST',
     body: JSON.stringify({ confirmToken }),
   });
+  await throwIfNotOk(res, 'Reset failed');
   return res.json();
-}
-
-export async function adminExportCsv() {
-  const token = localStorage.getItem('admin_token') ?? sessionStorage.getItem('admin_token');
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const res = await fetch(`${BASE}/api/mgmt/export`, { headers });
-  if (!res.ok) throw new Error(`Export failed: ${res.status}`);
-  return res.blob();
 }

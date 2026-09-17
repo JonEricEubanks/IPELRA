@@ -86,15 +86,13 @@ Admin (any browser, /admin)
 |---|---|
 | `/admin/login` | Admin magic link request |
 | `/admin/verify` | Admin magic link exchange |
-| `/admin/dashboard` | Live metrics + charts (30s auto-refresh) |
-| `/admin/sponsors` | Sponsor list — add/edit/toggle active |
+| `/admin/dashboard` | Live numbers: registered / completed / check-ins today / almost-there, hourly activity, sponsor ranking (dead tables flagged), stops funnel, live feed, "needs attention" (30s auto-refresh) |
+| `/admin/attendees` | Roster (auto-loads) with search + status filters; click a row for check-in history and manual credit (sponsor dropdown) |
+| `/admin/sponsors` | Sponsor list — add/edit/toggle active/reorder, with per-sponsor check-in count and "stuck" badge |
 | `/admin/sponsors/:id` | Edit sponsor — name, logo, tier, question, answer |
-| `/admin/attendees` | Search attendees, view check-ins, manual credit |
-| `/admin/flagged` | Attendees with repeated wrong answers |
-| `/admin/export` | Download raffle CSV |
-| `/admin/readiness` | Pre-flight checklist for go-live |
-| `/admin/settings` | App settings (threshold, lock time, live toggle) |
-| `/admin/reset` | Emergency data reset (dev/test only) |
+| `/admin/export` | Excel downloads (prize drawing list · full roster · sponsor report) + collapsed **System status** and **Reset for next year** sections |
+
+Old bookmarks to `/admin/flagged`, `/admin/readiness`, `/admin/settings`, and `/admin/reset` redirect to the tab that now holds that content.
 
 ---
 
@@ -102,7 +100,7 @@ Admin (any browser, /admin)
 
 - **Azure CLI** `az` — [install](https://docs.microsoft.com/cli/azure/install-azure-cli)
 - **Azure Functions Core Tools v4** — `npm install -g azure-functions-core-tools@4`
-- **Node.js 20+** — `node --version`
+- **Node.js 22+** — `node --version`
 - **Access** to Azure subscription `b8f90e47-b8ee-45f1-9442-d3b4f8fd0695` (Microsoft Azure Sponsorship)
 
 ```powershell
@@ -360,7 +358,7 @@ Run this checklist **at least 48 hours before October 5, 2026**.
     --settings "COMPLETION_THRESHOLD_POINTS=900"
   ```
   Takes effect immediately — no redeploy needed.
-- **Suspicious activity / cheating:** Check `/admin/flagged` for repeated wrong answers.
+- **Suspicious activity / cheating:** The Dashboard's **Needs attention** card and the **stuck** badge on `/admin/sponsors` show attendees who burned all 3 answer attempts at a table.
 
 ### End of Conference (October 10)
 

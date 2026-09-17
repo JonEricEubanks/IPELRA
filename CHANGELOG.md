@@ -7,6 +7,75 @@
 
 ---
 
+## [2026-09-16] — Answer-attempt messaging, table nudges, and sponsor content checks
+
+From a second round of tester feedback on the Workday question.
+
+### Changed
+
+- **Wrong-answer messaging no longer implies a lockout** (`api/src/functions/checkin.js`). Attempts were always unlimited by design, but the copy said "N attempt(s) remaining", so testers expected to be cut off. Messages now count down to the *hint* ("2 more tries before we show a hint") and every one names the sponsor table as the real path to the answer. Response gains `triesUntilHint`.
+- **Escalating "go to the table" nudge** in `SponsorSheet` — neutral after miss 1, orange "walk over there" after miss 2, "skip the guessing, head to the table — that's the whole point" after miss 3+.
+- **Website link removed from the question screen** — testers left the app to look up the answer and couldn't find their way back. The link stays on the sponsor profile screen, labelled "opens in a new tab — switch back here to answer".
+- **Sponsor edit page** (`AdminSponsorEditPage.jsx`) is now where the Dashboard's **Fix** / **Review** buttons land, and it explains why: a banner names the problem, the offending field is outlined orange with an inline reason, and a **"Wrong answers attendees typed here"** panel shows every rejected guess (tallied), coloured green/red against the *current* keyword so staff can see whether loosening the keyword would help. Tapping a chip runs it through the fuzzy tester. `?from=attention` makes Back return to the Dashboard. Labels now bound to inputs; the local fuzzy tester matches the server rules exactly (ceil tolerance + all-words rule); the stale "Max 3 attempts" hint text is gone.
+
+### Added
+
+- `api/src/lib/sponsorContent.js` (+ client twin `app/src/lib/sponsorContent.js`) — flags template text left in active sponsor copy: `[Company Name]`-style brackets, `{{braces}}`, "company name", TODO/TBD, lorem ipsum, and questions with no `?`. Surfaced in `GET /api/mgmt/metrics` as `contentIssues` → Dashboard **Needs attention** card, and as a `sponsor_content` readiness check. On first run it caught **two** live sponsors (Workday and "test") with `[Company Name]` still in their question.
+- `adminGetSponsorWrongAnswers()` client helper over the existing `/api/mgmt/flagged` endpoint.
+
+### Tests
+
+- New `sponsorContent.test.js` (4), `AdminSponsorEditPage.test.jsx` (4); extended `checkin.test.js` (4th attempt still allowed, no "remaining" wording), `adminMetrics.test.js` (active-only content issues), `SponsorSheet.test.jsx` (escalating nudge, no website in question phase), `AdminDashboardPage.test.jsx` (Fix link). Totals: 67 frontend, 73 backend.
+
+---
+
+## [2026-09-16] — Staff portal redesign: 8 tabs → 4, analytics dashboard, bug fixes
+
+Driven by a co-review of the admin area against what conference staff actually need on the day: **numbers at a glance and clean exports**. Developer/deployment tooling that had leaked into the staff UI was folded away or removed.
+
+### Changed
+
+- **Navigation collapsed to four tabs** (`app/src/components/AdminLayout.jsx`): Dashboard · Attendees · Sponsors · Export. Desktop now gets a proper dark sidebar; mobile gets a 4-item bottom bar. Old routes `/admin/flagged`, `/admin/readiness`, `/admin/settings`, `/admin/reset` redirect to the tab that now holds their content (`app/src/App.jsx`).
+- **Dashboard rebuilt** (`app/src/pages/AdminDashboardPage.jsx`): hero row (Registered with real "have started" count · Completed with % ring · Check-ins today · Almost there), live/closed/not-open status pill, hourly check-in activity chart (last 3 days), sponsor ranking across *all* active sponsors with **No visits** and **N stuck** badges, "how far along is the room" stops funnel, live check-in feed, recent completions, and a **Needs attention** card that only appears when attendees have burned all 3 attempts at a table. 30s auto-refresh with a stale-data warning on failure.
+- **Attendees rebuilt** (`app/src/pages/AdminAttendeePage.jsx`): roster loads immediately; type-to-search plus status chips with live counts; click any row for a side drawer with points/stops/status, check-in history, and **manual credit via a sponsor dropdown** (only active sponsors the attendee hasn't collected are offered).
+- **Sponsors** (`app/src/pages/AdminSponsorsPage.jsx`): per-sponsor check-in count and stuck badge inline; tier shown under the name; empty state; action buttons no longer break the table row layout.
+- **Export rebuilt** (`app/src/pages/AdminExportPage.jsx`): three honest, purpose-named Excel downloads — **Prize drawing list** (completed only, numbered in finish order), **Full attendee roster**, **Sponsor report** (check-ins + % of attendees per table). **System status** (the readiness checks) and **Reset for next year** live here as collapsed sections.
+- **`GET /api/mgmt/metrics` extended** (`api/src/functions/adminMetrics.js`) — one endpoint now returns everything the dashboard needs, all derived from existing documents: real `activeAttendees`, `checkinsToday` (conference-local day), `almostThere`, `manualCredits`, `passport` status block, zero-filled `hourly` buckets, `sponsors` rollup incl. zero-visit and stuck counts, `funnel`, `recentCheckins`, `needsAttention`. New `adminMetrics.test.js` (9 tests).
+
+### Fixed
+
+- Desktop admin sidebar was `display:none` with no CSS rule to ever show it — staff on a laptop were navigating with a 10px-label mobile bottom bar.
+- "Active" stat was faked as equal to "Registered" (`api.js` set `activeAttendees = registeredAttendees`); now counts attendees with ≥1 stamp.
+- Settings page read fields the readiness API never returned, so Passport Live showed "Unknown" and threshold "—". Page removed; live status now shows on the Dashboard header, threshold in the funnel caption.
+- CSV and Excel exports silently returned different populations (completed-only vs everyone) with near-identical labels.
+- Attendee roster required clicking "Load" before showing anything.
+- Manual credit required pasting a raw sponsor UUID.
+- Attendee check-in history read `c.points` / `c.isManual`, which don't exist on check-in docs (now `pointsAwarded` / `manualCredit`).
+- `adminManualCredit()` read `data.attendee.totalPoints` (never present) so the success toast always said 0 pts; `adminResetConference()` and `adminManualCredit()` now surface server errors instead of swallowing them.
+
+### Removed
+
+- `AdminFlaggedPage`, `AdminReadinessPage`, `AdminSettingsPage`, `AdminResetPage` and the `adminGetFlagged` / `adminExportCsv` client helpers. (Backend `GET /api/mgmt/flagged` and the `x-export-secret` CSV endpoint are untouched.)
+
+### Tests
+
+- `src/test/setup.js` stubs `window.matchMedia` so pages using `react-hot-toast` render under jsdom.
+- New: `AdminDashboardPage.test.jsx` (6), `AdminAttendeePage.test.jsx` (3), `adminMetrics.test.js` (9). Totals: 60 frontend, 68 backend.
+
+---
+
+## [2026-09-16] — Post-testing fixes: magic-link delivery, email logo, completion loop, QR scanning
+
+### Fixed
+
+- **Magic links now tolerate slow/batching corporate mail servers** (`api/src/functions/sendMagicLink.js`, `api/src/functions/verifyToken.js`) — an attendee's Cosmos record now keeps a short list of unexpired pending magic-link tokens instead of a single token that got silently overwritten (and thus invalidated) by every new "send link" request. Any outstanding link now works; a successful login invalidates all of them at once.
+- **Email logo restored** (`api/src/lib/email.js`) — the magic-link, completion, and admin-login emails pointed at `https://ipelra.org/wp-content/uploads/.../ipelra-logo.png`, which now 404s (the domain has been repurposed). Emails now use the app's own hosted `/logo-text.png`.
+- **"View My Passport" no longer loops back to the celebration screen** (`app/src/pages/CompletedPage.jsx`, `app/src/pages/PassportHomePage.jsx`) — the home route unconditionally redirected completed attendees to `/completed`. It now shows the passport dashboard once the celebration screen has been seen.
+- **Scanning a sponsor's QR code no longer auto-awards points** (`api/src/functions/checkin.js`, `app/src/pages/ScanPage.jsx`, `app/src/components/SponsorSheet.jsx`) — this had drifted from the original discovery-meeting decision (prompt questions only, to force genuine attendee/sponsor interaction). `POST /api/checkin` now only accepts `{ sponsorId, answer }`; the QR-code bypass path is removed. A scan (printed table QR or in-app scanner) now just deep-links to that sponsor's prompt question — same as tapping the sponsor card — and the attendee must still answer correctly to earn the stamp. `SponsorSheet` gained an `initialPhase` prop so `ScanPage` can open straight to the question; its "scan to unlock instantly" shortcut button was removed since it no longer applied.
+- **First-time QR scanners now see onboarding before the sponsor question** (`app/src/pages/VerifyPage.jsx`, `app/src/pages/OnboardingPage.jsx`) — previously, a brand-new attendee who scanned a sponsor's QR as their very first interaction skipped the 3-card "what is this passport" intro entirely, landing straight on a sponsor's question with zero context. `VerifyPage` now sends never-onboarded attendees to `/onboarding` first (re-saving the pending scan so it survives the detour); `OnboardingPage` resumes straight to the sponsor's question once the intro is finished or skipped. Returning attendees still resume immediately, unchanged.
+
+---
+
 ## [2026-04-27] — Phase 9 & 10: SWA Config + README (Complete)
 
 ### Added

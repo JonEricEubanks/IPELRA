@@ -4,12 +4,14 @@
  * Includes a live fuzzy-match tester (mirrors server logic).
  */
 
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
-import { adminGetSponsors, adminUpdateSponsor, adminCreateSponsor } from '../api';
+import { adminGetSponsors, adminUpdateSponsor, adminCreateSponsor, adminGetSponsorWrongAnswers } from '../api';
+import { findPlaceholderIssues } from '../lib/sponsorContent';
+import { AlertTriangle, MessageSquareWarning, CheckCircle2 } from 'lucide-react';
 
-// â”€â”€ Client-side fuzzy match (mirrors fuzzyMatch.js server logic) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Client-side fuzzy match (mirrors api/src/lib/fuzzyMatch.js exactly) ─────
 function normalize(s) {
   return s.toLowerCase().trim().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ');
 }
@@ -29,10 +31,16 @@ function testFuzzy(answer, keyword) {
   if (!keyword.trim()) return null;
   const a = normalize(answer);
   const k = normalize(keyword);
+  if (!a) return { pass: false, dist: Infinity, maxDist: 0 };
   if (a.includes(k)) return { pass: true, method: 'keyword found in answer' };
   const dist = levenshtein(a, k);
-  const maxDist = Math.floor(k.length * 0.3);
-  if (dist <= maxDist) return { pass: true, method: `close match (distance ${dist} â‰¤ ${maxDist})` };
+  const maxDist = Math.ceil(k.length * 0.3);
+  if (k.length >= 4 && dist <= maxDist) return { pass: true, method: `close match (distance ${dist} ≤ ${maxDist})` };
+  const kTokens = k.split(' ').filter(Boolean);
+  if (kTokens.length > 1) {
+    const aTokens = new Set(a.split(' ').filter(Boolean));
+    if (kTokens.every(t => aTokens.has(t))) return { pass: true, method: 'every keyword word appears in answer' };
+  }
   return { pass: false, dist, maxDist };
 }
 
@@ -55,6 +63,9 @@ const EMPTY = {
 export default function AdminSponsorEditPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // ?from=attention → arrived via the Dashboard's Fix/Review button
+  const fromAttention = searchParams.get('from') === 'attention';
   const isNew = !id || id === 'new';
 
   const [form, setForm]     = useState(EMPTY);
@@ -64,6 +75,11 @@ export default function AdminSponsorEditPage() {
 
   const [testAnswer, setTestAnswer] = useState('');
   const [testResult, setTestResult] = useState(null);
+  const [wrongAnswers, setWrongAnswers] = useState([]);
+
+  // Live content warnings — the same rules the Dashboard uses to flag a sponsor
+  const contentIssues = useMemo(() => findPlaceholderIssues(form), [form]);
+  const fieldHasIssue = (field) => contentIssues.some(i => i.field === field);
 
   useEffect(() => {
     if (isNew) return;
@@ -75,7 +91,21 @@ export default function AdminSponsorEditPage() {
       })
       .catch(() => setError('Failed to load sponsor.'))
       .finally(() => setLoading(false));
+    adminGetSponsorWrongAnswers(id).then(setWrongAnswers).catch(() => {});
   }, [id, isNew]);
+
+  // Every distinct wrong guess, most common first — staff can eyeball whether the
+  // rep is giving an answer the keyword doesn't accept.
+  const guessTally = useMemo(() => {
+    const tally = new Map();
+    for (const w of wrongAnswers) for (const a of w.rejectedAnswers) {
+      const k = String(a).trim();
+      if (!k) continue;
+      tally.set(k, (tally.get(k) ?? 0) + 1);
+    }
+    return [...tally.entries()].sort((a, b) => b[1] - a[1]);
+  }, [wrongAnswers]);
+  const stuckCount = wrongAnswers.filter(w => w.stuck).length;
 
   function set(field, value) {
     setForm(f => {
@@ -131,14 +161,34 @@ export default function AdminSponsorEditPage() {
     );
   }
 
+  const backTo = fromAttention ? '/admin/dashboard' : '/admin/sponsors';
+
   return (
     <AdminLayout>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-5)' }}>
-        <button className="btn btn-ghost btn-sm" onClick={() => navigate('/admin/sponsors')}>← Back</button>
-        <h1 style={{ fontSize: 22, fontWeight: 800 }}>{isNew ? 'New Sponsor' : 'Edit Sponsor'}</h1>
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate(backTo)}>← {fromAttention ? 'Dashboard' : 'Back'}</button>
+        <h1 style={{ fontSize: 22, fontWeight: 800 }}>{isNew ? 'New Sponsor' : `Edit ${form.name || 'Sponsor'}`}</h1>
       </div>
 
       {error && <div className="alert alert--error">{error}</div>}
+
+      {/* Why you're here — shown whenever this sponsor has something to look at */}
+      {!isNew && (contentIssues.length > 0 || stuckCount > 0) && (
+        <div className="alert alert--warn" role="status" style={{ maxWidth: 640, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+          <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 2 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {contentIssues.map(i => (
+              <div key={i.field + i.text}><strong>{i.text}.</strong> Edit the highlighted field below and save.</div>
+            ))}
+            {stuckCount > 0 && (
+              <div>
+                <strong>{stuckCount} attendee{stuckCount === 1 ? '' : 's'} used all 3 answer attempts here.</strong>{' '}
+                Check what they typed (below the answer keyword) — if the rep is saying something the keyword doesn't accept, loosen the keyword or brief the rep.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: 640 }}>
         {/* Basic info */}
@@ -249,31 +299,83 @@ export default function AdminSponsorEditPage() {
           <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 'var(--space-4)' }}>Passport Prompt</h2>
 
           <div className="form-group">
-            <label className="form-label">Question shown to attendees *</label>
+            <label className="form-label" htmlFor="sp-question">Question shown to attendees *</label>
             <textarea
+              id="sp-question"
               className="form-input"
               rows={3}
               placeholder="e.g. What does CityTech Solutions specialize in?"
               value={form.promptQuestion}
               onChange={e => set('promptQuestion', e.target.value)}
               required
+              aria-invalid={fieldHasIssue('promptQuestion') || undefined}
+              style={fieldHasIssue('promptQuestion') ? { borderColor: '#f97316', boxShadow: '0 0 0 3px rgba(249,115,22,0.18)' } : undefined}
             />
+            {fieldHasIssue('promptQuestion') && (
+              <div className="form-hint" style={{ color: '#9a3412', fontWeight: 600 }}>
+                {contentIssues.filter(i => i.field === 'promptQuestion').map(i => i.text).join(' · ')}
+              </div>
+            )}
           </div>
 
           <div className="form-group">
-            <label className="form-label">Answer keyword (for fuzzy match) *</label>
+            <label className="form-label" htmlFor="sp-keyword">Answer keyword (for fuzzy match) *</label>
             <input
+              id="sp-keyword"
               className="form-input"
               placeholder="e.g. municipal technology"
               value={form.promptAnswerKeyword}
               onChange={e => set('promptAnswerKeyword', e.target.value)}
               required
+              aria-invalid={fieldHasIssue('promptAnswerKeyword') || undefined}
+              style={fieldHasIssue('promptAnswerKeyword') ? { borderColor: '#f97316', boxShadow: '0 0 0 3px rgba(249,115,22,0.18)' } : undefined}
             />
             <div className="form-hint">
-              Attendees earn points if their answer contains this keyword or is within 30% Levenshtein distance.
-              Max 3 attempts; hint shown after 3 failures.
+              An answer is accepted if it <strong>contains</strong> this keyword (any casing/punctuation), is a close misspelling of it,
+              or includes every word of it. Attendees can keep trying — after 3 misses they see a letter hint and are pointed to your table.
             </div>
           </div>
+
+          {/* What attendees actually typed here */}
+          {!isNew && guessTally.length > 0 && (
+            <div style={{ borderTop: '1px solid var(--color-border)', marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <MessageSquareWarning size={16} color="#9a3412" />
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)' }}>
+                  Wrong answers attendees typed here
+                  <span style={{ fontWeight: 500, color: 'var(--color-text-2)' }}> · {wrongAnswers.length} {wrongAnswers.length === 1 ? 'person' : 'people'}{stuckCount ? `, ${stuckCount} stuck` : ''}</span>
+                </div>
+              </div>
+              <p className="form-hint" style={{ marginBottom: 10 }}>
+                Tap one to test it against the keyword above. Green means changing the keyword would now accept it.
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {guessTally.map(([guess, n]) => {
+                  const r = form.promptAnswerKeyword.trim() ? testFuzzy(guess, form.promptAnswerKeyword) : null;
+                  return (
+                    <button
+                      key={guess}
+                      type="button"
+                      onClick={() => { setTestAnswer(guess); setTestResult(testFuzzy(guess, form.promptAnswerKeyword)); }}
+                      title="Test this answer"
+                      data-pass={r?.pass ? 'true' : 'false'}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        padding: '5px 10px', borderRadius: 999, fontSize: 13, cursor: 'pointer',
+                        border: `1.5px solid ${r?.pass ? '#a7f3d0' : '#fecaca'}`,
+                        background: r?.pass ? 'var(--color-success-light)' : '#fef2f2',
+                        color: r?.pass ? '#065f46' : '#991b1b',
+                      }}
+                    >
+                      {r?.pass && <CheckCircle2 size={13} />}
+                      <span style={{ fontFamily: 'monospace' }}>“{guess}”</span>
+                      {n > 1 && <span style={{ opacity: 0.7 }}>×{n}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Live test */}
           <div style={{ borderTop: '1px solid var(--color-border)', marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)' }}>

@@ -1,109 +1,261 @@
 /**
- * AdminDashboardPage.jsx — /admin
- * Metrics grid, charts, top sponsors, recent completions. 30s auto-refresh.
+ * AdminDashboardPage.jsx — /admin/dashboard
+ *
+ * The staff "numbers" screen. Designed to sit on a laptop at the registration
+ * desk or in a staffer's hand. Auto-refreshes every 30s.
+ *
+ *   Hero row     — Registered · Completed (with % ring) · Check-ins today · Almost there
+ *   Activity     — check-ins per hour across the conference
+ *   Sponsors     — every sponsor ranked by check-ins; dead tables highlighted
+ *   Progress     — how many attendees have 0 / 1 / 2 / … stops
+ *   Live feed    — most recent check-ins
+ *   Attention    — sponsors where attendees have burned all their attempts
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import { adminGetMetrics } from '../api';
 import {
-  ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, Tooltip, Cell,
-  RadialBarChart, RadialBar, PolarAngleAxis,
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
+  BarChart, Bar, Cell, LabelList,
 } from 'recharts';
+import { Users, Trophy, Zap, Flag, AlertTriangle, RefreshCw } from 'lucide-react';
 
-function StatCard({ label, value, sub, color }) {
-  return (
-    <div className="stat-card" style={{ borderTop: `3px solid ${color ?? 'var(--color-primary)'}` }}>
-      <div className="stat-value">{value ?? '—'}</div>
-      <div className="stat-label">{label}</div>
-      {sub && <div style={{ fontSize: 12, color: 'var(--color-text-2)', marginTop: 2 }}>{sub}</div>}
-    </div>
-  );
+const REFRESH_MS = 30_000;
+// The conference runs ~3 days; older buckets just squash the chart
+const ACTIVITY_WINDOW_HOURS = 72;
+
+// ── Small helpers ─────────────────────────────────────────────────────────────
+
+function fmtTime(iso) {
+  return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+function fmtHour(iso) {
+  return new Date(iso).toLocaleTimeString([], { hour: 'numeric' });
+}
+function fmtDayHour(iso) {
+  return new Date(iso).toLocaleString([], { weekday: 'short', hour: 'numeric' });
+}
+function initials(name = '') {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts[0].includes('@')) return parts[0][0].toUpperCase();
+  return parts.slice(0, 2).map(p => p[0].toUpperCase()).join('');
+}
+function relTime(iso, now) {
+  const s = Math.max(0, Math.round((now - new Date(iso)) / 1000));
+  if (s < 60)   return 'just now';
+  const m = Math.round(s / 60);
+  if (m < 60)   return `${m}m ago`;
+  const h = Math.round(m / 60);
+  if (h < 24)   return `${h}h ago`;
+  return new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
-const CHART_COLORS = ['#1d3461', '#254a84', '#2d5fa0', '#3574bc', '#8b5cf6', '#06b6d4', '#f43f5e'];
+// ── Widgets ───────────────────────────────────────────────────────────────────
 
-function SponsorsBarChart({ data }) {
-  if (!data?.length) return null;
-  return (
-    <div className="card" style={{ padding: '20px 8px 8px 8px', marginBottom: 'var(--space-6)' }}>
-      <h2 style={{ fontSize: 15, fontWeight: 700, paddingLeft: 12, marginBottom: 12 }}>Check-ins by Sponsor</h2>
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data} layout="vertical" margin={{ left: 8, right: 24, top: 0, bottom: 0 }}>
-          <XAxis type="number" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-          <YAxis
-            type="category"
-            dataKey="name"
-            width={120}
-            tick={{ fontSize: 12, fill: '#334155' }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <Tooltip
-            cursor={{ fill: 'rgba(29,52,97,0.06)' }}
-            contentStyle={{ borderRadius: 10, border: 'none', boxShadow: '0 4px 16px rgba(0,0,0,0.12)', fontSize: 13 }}
-            formatter={(v) => [v, 'Check-ins']}
-          />
-          <Bar dataKey="count" radius={[0, 6, 6, 0]} maxBarSize={28}>
-            {data.map((_, i) => (
-              <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
+function LivePill({ passport }) {
+  if (passport.closed) return <span className="live-pill live-pill--closed"><span className="live-pill__dot" />Passport closed</span>;
+  if (passport.live)   return <span className="live-pill live-pill--live"><span className="live-pill__dot" />Passport live</span>;
+  return <span className="live-pill live-pill--off"><span className="live-pill__dot" />Not open yet</span>;
 }
 
-function CompletionRadial({ pct }) {
-  const data = [{ name: 'Completed', value: pct, fill: '#1d3461' }];
+function HeroStat({ label, value, sub, Icon, primary }) {
   return (
-    <div className="card" style={{ padding: '20px 8px 0 8px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, alignSelf: 'flex-start', paddingLeft: 12 }}>Completion Rate</h2>
-      <div style={{ position: 'relative', width: '100%', maxWidth: 200, margin: '0 auto' }}>
-        <ResponsiveContainer width="100%" height={180}>
-          <RadialBarChart
-            cx="50%" cy="50%"
-            innerRadius="65%" outerRadius="90%"
-            data={data}
-            startAngle={90}
-            endAngle={-270}
-          >
-            <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
-            <RadialBar
-              background={{ fill: '#e2e8f0' }}
-              dataKey="value"
-              angleAxisId={0}
-              cornerRadius={8}
-            />
-          </RadialBarChart>
-        </ResponsiveContainer>
-        <div style={{
-          position: 'absolute', inset: 0,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          pointerEvents: 'none',
-        }}>
-          <span style={{ fontSize: 28, fontWeight: 800, color: '#1d3461', lineHeight: 1 }}>{pct}%</span>
-          <span style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>completed</span>
-        </div>
+    <div className={`hero-stat${primary ? ' hero-stat--primary' : ''}`}>
+      {Icon && <Icon size={64} className="hero-stat__icon" />}
+      <div className="hero-stat__label">{label}</div>
+      <div>
+        <div className="hero-stat__value">{value}</div>
+        {sub && <div className="hero-stat__sub">{sub}</div>}
       </div>
     </div>
   );
 }
 
+function CompletionRing({ pct, size = 64 }) {
+  const r = (size - 8) / 2;
+  const c = 2 * Math.PI * r;
+  return (
+    <svg width={size} height={size} className="hero-stat__ring" aria-hidden="true">
+      <circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(255,255,255,0.18)" strokeWidth={8} fill="none" />
+      <circle
+        cx={size / 2} cy={size / 2} r={r}
+        stroke="#6ee7b7" strokeWidth={8} fill="none" strokeLinecap="round"
+        strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)}
+        transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        style={{ transition: 'stroke-dashoffset 800ms cubic-bezier(0.4,0,0.2,1)' }}
+      />
+      <text x="50%" y="50%" dominantBaseline="central" textAnchor="middle" fill="#fff" fontSize={size * 0.24} fontWeight={800} fontFamily="Manrope, sans-serif">
+        {pct}%
+      </text>
+    </svg>
+  );
+}
+
+function ActivityChart({ hourly }) {
+  // Only show the most recent window so a week of sporadic test check-ins
+  // doesn't flatten the real conference traffic into a sliver.
+  const recent = useMemo(() => {
+    const cutoff = Date.now() - ACTIVITY_WINDOW_HOURS * 60 * 60 * 1000;
+    const inWindow = hourly.filter(h => new Date(h.hour).getTime() >= cutoff);
+    return inWindow.length ? inWindow : hourly.slice(-ACTIVITY_WINDOW_HOURS);
+  }, [hourly]);
+
+  const multiDay = useMemo(() => {
+    if (recent.length < 2) return false;
+    const a = new Date(recent[0].hour), b = new Date(recent[recent.length - 1].hour);
+    return a.toDateString() !== b.toDateString();
+  }, [recent]);
+
+  if (!recent.length) return <div className="empty-mini">Check-in activity will appear here once the passport opens.</div>;
+
+  const data = recent.map(h => ({ ...h, label: multiDay ? fmtDayHour(h.hour) : fmtHour(h.hour) }));
+  const totalInWindow = recent.reduce((n, h) => n + h.count, 0);
+  return (
+    <>
+    <ResponsiveContainer width="100%" height={220}>
+      <AreaChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+        <defs>
+          <linearGradient id="dashArea" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"  stopColor="#254a84" stopOpacity={0.35} />
+            <stop offset="100%" stopColor="#254a84" stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid vertical={false} stroke="#edeeef" />
+        <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#74777f' }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={28} />
+        <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#74777f' }} axisLine={false} tickLine={false} />
+        <Tooltip
+          contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', fontSize: 13 }}
+          labelFormatter={(_, p) => p?.[0]?.payload ? fmtDayHour(p[0].payload.hour) : ''}
+          formatter={(v) => [v, 'Check-ins']}
+        />
+        <Area type="monotone" dataKey="count" stroke="#1d3461" strokeWidth={2.5} fill="url(#dashArea)" dot={false} activeDot={{ r: 5, strokeWidth: 0 }} />
+      </AreaChart>
+    </ResponsiveContainer>
+    <div className="dash-card__hint" style={{ textAlign: 'center', marginTop: 4 }}>
+      {totalInWindow} check-ins in the last {ACTIVITY_WINDOW_HOURS / 24} days
+    </div>
+    </>
+  );
+}
+
+function SponsorRanking({ sponsors }) {
+  const active = sponsors.filter(s => s.isActive);
+  if (!active.length) return <div className="empty-mini">No active sponsors yet.</div>;
+  const max = Math.max(...active.map(s => s.checkinCount), 1);
+  return (
+    <div className="rank-list">
+      {active.map((s, i) => {
+        const dead = s.checkinCount === 0;
+        return (
+          <div key={s.sponsorId} className={`rank-row${dead ? ' rank-row--dead' : ''}`}>
+            <div className="rank-row__num">{i + 1}</div>
+            <div className="rank-row__name">
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.sponsorName}</span>
+              {dead && <span className="dead-badge">No visits</span>}
+              {s.stuckAttendees > 0 && <span className="stuck-badge">{s.stuckAttendees} stuck</span>}
+            </div>
+            <div className="rank-row__count">{s.checkinCount}</div>
+            <div className="rank-row__bar-wrap">
+              <div className={`rank-row__bar${dead ? ' rank-row__bar--dead' : ''}`} style={{ width: `${dead ? 100 : (s.checkinCount / max) * 100}%` }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function StopsFunnel({ funnel, activeSponsors, threshold }) {
+  const total = funnel.reduce((n, f) => n + f.count, 0);
+  if (!total) return <div className="empty-mini">No attendees registered yet.</div>;
+  const data = funnel.map(f => ({ ...f, label: `${f.stops}` }));
+  return (
+    <>
+      <ResponsiveContainer width="100%" height={180}>
+        <BarChart data={data} margin={{ top: 22, right: 8, left: 8, bottom: 0 }}>
+          <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#43474e', fontWeight: 600 }} axisLine={false} tickLine={false} />
+          <YAxis hide />
+          <Tooltip
+            cursor={{ fill: 'rgba(29,52,97,0.05)' }}
+            contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', fontSize: 13 }}
+            labelFormatter={(l) => `${l} stop${l === '1' ? '' : 's'}`}
+            formatter={(v) => [v, 'Attendees']}
+          />
+          <Bar dataKey="count" radius={[8, 8, 8, 8]} maxBarSize={44}>
+            {data.map((d, i) => (
+              <Cell key={i} fill={d.stops === 0 ? '#c3c6cf' : d.stops >= activeSponsors ? '#1a7f5a' : '#254a84'} />
+            ))}
+            <LabelList dataKey="count" position="top" style={{ fontSize: 12, fontWeight: 700, fill: '#191c1d' }} formatter={(v) => (v > 0 ? v : '')} />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+      <div className="dash-card__hint" style={{ textAlign: 'center', marginTop: 4 }}>
+        Number of stops collected · {activeSponsors} active {activeSponsors === 1 ? 'sponsor' : 'sponsors'}{threshold ? ` · ${threshold} pts to complete` : ''}
+      </div>
+    </>
+  );
+}
+
+function LiveFeed({ items, now }) {
+  if (!items.length) return <div className="empty-mini">The first check-in will show up here.</div>;
+  return (
+    <div className="feed">
+      {items.map((c, i) => (
+        <div key={`${c.attendeeEmail}-${c.timestamp}-${i}`} className="feed__row">
+          <div className="feed__avatar">{initials(c.attendeeName)}</div>
+          <div className="feed__body">
+            <div className="feed__title">{c.attendeeName} <em>→ {c.sponsorName}</em></div>
+            <div className="feed__meta">
+              {relTime(c.timestamp, now)} · {fmtTime(c.timestamp)}
+              {c.manualCredit && <> · <span className="pill pill--manual" style={{ padding: '1px 7px', fontSize: 10 }}>manual</span></>}
+            </div>
+          </div>
+          <div className="feed__pts">+{c.pointsAwarded}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CompletionsFeed({ items, now }) {
+  if (!items.length) return <div className="empty-mini">Nobody has finished yet — they will!</div>;
+  return (
+    <div className="feed">
+      {items.map((a, i) => (
+        <div key={`${a.email}-${i}`} className="feed__row">
+          <div className="feed__avatar feed__avatar--done"><Trophy size={15} /></div>
+          <div className="feed__body">
+            <div className="feed__title">{a.name}</div>
+            <div className="feed__meta">{relTime(a.completedAt, now)} · {a.email}</div>
+          </div>
+          <div className="feed__pts">{a.totalPoints} pts</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
 export default function AdminDashboardPage() {
-  const [metrics, setMetrics] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [lastRefresh, setLastRefresh] = useState(null);
+  const [metrics, setMetrics]   = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState('');
+  const [lastRefresh, setLast]  = useState(null);
+  const [now, setNow]           = useState(() => Date.now());
 
   const load = useCallback(async () => {
     try {
       const data = await adminGetMetrics();
       setMetrics(data);
-      setLastRefresh(new Date());
+      setError('');
+      setLast(new Date());
+      setNow(Date.now());
     } catch {
-      // keep stale data on error
+      setError('Could not refresh — showing the last numbers we had.');
     } finally {
       setLoading(false);
     }
@@ -111,78 +263,136 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 30_000);
-    return () => clearInterval(interval);
+    const t = setInterval(load, REFRESH_MS);
+    return () => clearInterval(t);
   }, [load]);
 
-  return (
-    <AdminLayout>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-5)' }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800 }}>Dashboard</h1>
-        {lastRefresh && (
-          <span style={{ fontSize: 12, color: 'var(--color-text-2)' }}>
-            Refreshed {lastRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-          </span>
-        )}
-      </div>
+  const pct = metrics?.completionRate ?? 0;
 
-      {loading && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 'var(--space-3)' }}>
-          {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="skeleton" style={{ height: 90, borderRadius: 'var(--radius-card)' }} />)}
+  return (
+    <AdminLayout
+      wide
+      title="Dashboard"
+      subtitle={lastRefresh ? `Live · updates every 30s · last ${lastRefresh.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'Loading conference numbers…'}
+      actions={
+        <>
+          {metrics && <LivePill passport={metrics.passport} />}
+          <button className="btn btn-ghost btn-sm" onClick={load} aria-label="Refresh now">
+            <RefreshCw size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />Refresh
+          </button>
+        </>
+      }
+    >
+      {error && <div className="alert alert--warn" role="alert">{error}</div>}
+
+      {loading && !metrics && (
+        <div className="hero-grid">
+          {[1, 2, 3, 4].map(i => <div key={i} className="skeleton" style={{ height: 118, borderRadius: 20 }} />)}
         </div>
       )}
 
       {metrics && (
         <>
-          <div className="stat-grid">
-            <StatCard label="Registered" value={metrics.totalAttendees} color="var(--color-primary)" />
-            <StatCard label="Active (any check-in)" value={metrics.activeAttendees} color="#8b5cf6" />
-            <StatCard label="Completed" value={metrics.completedCount} color="var(--color-success)" />
-            <StatCard label="Completion %" value={metrics.totalAttendees ? `${Math.round((metrics.completedCount / metrics.totalAttendees) * 100)}%` : '—'} color="#6ea8d8" />
-            <StatCard label="Total Check-ins" value={metrics.totalCheckins} color="#f43f5e" />
-            <StatCard label="Sponsors Active" value={metrics.activeSponsors} color="#06b6d4" />
+          {/* ── Hero row ─────────────────────────────────────────── */}
+          <div className="hero-grid">
+            <HeroStat
+              label="Registered"
+              value={metrics.totalAttendees}
+              sub={`${metrics.activeAttendees} have started`}
+              Icon={Users}
+            />
+            <div className="hero-stat hero-stat--primary">
+              <Trophy size={64} className="hero-stat__icon" />
+              <div className="hero-stat__label">Completed</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <div>
+                  <div className="hero-stat__value">{metrics.completedCount}</div>
+                  <div className="hero-stat__sub">{pct}% · in the prize drawing</div>
+                </div>
+                <CompletionRing pct={pct} />
+              </div>
+            </div>
+            <HeroStat
+              label="Check-ins today"
+              value={metrics.checkinsToday}
+              sub={`${metrics.totalCheckins} total`}
+              Icon={Zap}
+            />
+            <HeroStat
+              label="Almost there"
+              value={metrics.almostThere}
+              sub="one stop from finishing"
+              Icon={Flag}
+            />
           </div>
 
-          {/* Charts row */}
-          {(metrics.topSponsors?.length > 0 || metrics.totalAttendees > 0) && (
-            <div style={{ display: 'grid', gridTemplateColumns: metrics.topSponsors?.length > 0 ? '1fr auto' : '1fr', gap: 'var(--space-4)', marginTop: 'var(--space-5)', alignItems: 'start' }}>
-              {metrics.topSponsors?.length > 0 && (
-                <SponsorsBarChart data={metrics.topSponsors} />
-              )}
-              {metrics.totalAttendees > 0 && (
-                <div style={{ minWidth: 180 }}>
-                  <CompletionRadial pct={Math.round((metrics.completedCount / metrics.totalAttendees) * 100)} />
+          {/* ── Needs attention (only when there's something) ──── */}
+          {(metrics.needsAttention.length > 0 || metrics.contentIssues.length > 0) && (
+            <div className="dash-card attention-card" style={{ marginBottom: 16 }}>
+              <div className="dash-card__head" style={{ marginBottom: 6 }}>
+                <div className="dash-card__title" style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#9a3412' }}>
+                  <AlertTriangle size={16} /> Needs attention
                 </div>
-              )}
+              </div>
+              {metrics.contentIssues.map((c, i) => (
+                <div key={`c-${c.sponsorId}-${i}`} className="attention-row">
+                  <span><strong>{c.sponsorName}</strong> — {c.issue}</span>
+                  <Link to={`/admin/sponsors/${c.sponsorId}?from=attention`} className="btn btn-ghost btn-sm" style={{ flexShrink: 0 }}>Fix</Link>
+                </div>
+              ))}
+              {metrics.needsAttention.map(s => (
+                <div key={s.sponsorId} className="attention-row">
+                  <span>
+                    <strong>{s.sponsorName}</strong> — {s.stuckAttendees} attendee{s.stuckAttendees === 1 ? '' : 's'} used all 3 answer attempts.
+                    <span style={{ color: 'var(--color-on-surface-muted)' }}> The rep may be giving a different answer than the keyword.</span>
+                  </span>
+                  <Link to={`/admin/sponsors/${s.sponsorId}?from=attention`} className="btn btn-ghost btn-sm" style={{ flexShrink: 0 }}>Review</Link>
+                </div>
+              ))}
             </div>
           )}
 
-          {/* Recent completions */}
-          {metrics.recentCompletions?.length > 0 && (
-            <>
-              <h2 style={{ fontSize: 17, fontWeight: 700, margin: 'var(--space-6) 0 var(--space-3)' }}>Recent Completions</h2>
-              <div className="admin-table-wrap">
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Attendee</th>
-                      <th>Completed At</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {metrics.recentCompletions.map((a, i) => (
-                      <tr key={i}>
-                        <td>{a.email}</td>
-                        <td style={{ color: 'var(--color-text-2)' }}>
-                          {new Date(a.completedAt).toLocaleString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {/* ── Main grid ────────────────────────────────────────── */}
+          <div className="dash-grid">
+            <div className="dash-card dash-span-8">
+              <div className="dash-card__head">
+                <div className="dash-card__title">Check-in activity</div>
+                <div className="dash-card__hint">per hour</div>
               </div>
-            </>
-          )}
+              <ActivityChart hourly={metrics.hourly} />
+            </div>
+
+            <div className="dash-card dash-span-4">
+              <div className="dash-card__head">
+                <div className="dash-card__title">How far along is the room?</div>
+              </div>
+              <StopsFunnel funnel={metrics.funnel} activeSponsors={metrics.activeSponsors} threshold={metrics.passport.threshold} />
+            </div>
+
+            <div className="dash-card dash-span-6">
+              <div className="dash-card__head">
+                <div className="dash-card__title">Sponsor tables</div>
+                <div className="dash-card__hint">check-ins · all active sponsors</div>
+              </div>
+              <SponsorRanking sponsors={metrics.sponsors} />
+            </div>
+
+            <div className="dash-card dash-span-6">
+              <div className="dash-card__head">
+                <div className="dash-card__title">Live feed</div>
+                <div className="dash-card__hint">latest check-ins</div>
+              </div>
+              <LiveFeed items={metrics.recentCheckins} now={now} />
+            </div>
+
+            <div className="dash-card dash-span-12">
+              <div className="dash-card__head">
+                <div className="dash-card__title">Recent completions</div>
+                <div className="dash-card__hint">{metrics.completedCount} total · entered in the drawing</div>
+              </div>
+              <CompletionsFeed items={metrics.recentCompletions.slice(0, 10)} now={now} />
+            </div>
+          </div>
         </>
       )}
     </AdminLayout>
