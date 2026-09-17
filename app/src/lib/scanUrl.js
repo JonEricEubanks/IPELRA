@@ -19,15 +19,18 @@ export function parseScanUrl(text, origin = typeof window !== 'undefined' ? wind
   const raw = text.trim();
   if (!raw) return null;
 
+  // Protocol-relative ("//evil.com/scan/x") is NOT a bare path
+  const isBarePath = raw.startsWith('/') && !raw.startsWith('//');
+
   let url;
   try {
     // Accept absolute URLs on our origin, or a bare relative path
-    url = raw.startsWith('/') ? new URL(raw, origin || 'http://localhost') : new URL(raw);
+    url = isBarePath ? new URL(raw, origin || 'http://localhost') : new URL(raw);
   } catch {
     return null;
   }
 
-  if (origin && !raw.startsWith('/') && url.origin !== origin) return null;
+  if (origin && !isBarePath && url.origin !== origin) return null;
 
   const m = url.pathname.match(/^\/scan\/([^/]+)$/);
   if (!m) return null;

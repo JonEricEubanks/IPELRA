@@ -3,7 +3,7 @@
   "Values": {
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "node",
-    "WEBSITE_NODE_DEFAULT_VERSION": "~20",
+    "WEBSITE_NODE_DEFAULT_VERSION": "~22",
 
     "COSMOS_CONNECTION_STRING": "AccountEndpoint=https://<your-account>.documents.azure.com:443/;AccountKey=<key>;",
     "JWT_SECRET": "replace-with-32-plus-character-random-string",

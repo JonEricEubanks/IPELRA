@@ -17,9 +17,10 @@ import {
   getCheckinsByAttendee,
   getSponsorById,
   getAllAttendees,
-  upsertAttendee,
   createCheckin,
 } from '../lib/cosmos.js';
+import { creditAttendee } from '../lib/credit.js';
+import { jsonResponse as json } from '../lib/http.js';
 
 // GET /api/mgmt/attendees?email=attendee@example.com
 app.http('adminGetAttendee', {
@@ -31,23 +32,17 @@ app.http('adminGetAttendee', {
 
     const email = new URL(request.url).searchParams.get('email') ?? '';
     if (!email.trim()) {
-      return new Response(JSON.stringify({ error: 'email query parameter is required' }), {
-        status: 400, headers: { 'Content-Type': 'application/json' },
-      });
+      return json(400, { error: 'email query parameter is required' });
     }
 
     const attendee = await getAttendeeByEmail(email.trim().toLowerCase());
     if (!attendee) {
-      return new Response(JSON.stringify({ error: 'Attendee not found' }), {
-        status: 404, headers: { 'Content-Type': 'application/json' },
-      });
+      return json(404, { error: 'Attendee not found' });
     }
 
     const checkins = await getCheckinsByAttendee(attendee.id);
 
-    return new Response(JSON.stringify({ attendee, checkins }), {
-      status: 200, headers: { 'Content-Type': 'application/json' },
-    });
+    return json(200, { attendee, checkins });
   },
 });
 
@@ -63,14 +58,12 @@ app.http('adminManualCredit', {
 
     let body;
     try { body = await request.json(); } catch {
-      return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      return json(400, { error: 'Invalid JSON' });
     }
 
     const { attendeeId, attendeeEmail, sponsorId, note } = body;
     if (!attendeeId || !attendeeEmail || !sponsorId) {
-      return new Response(JSON.stringify({ error: 'attendeeId, attendeeEmail, and sponsorId are required' }), {
-        status: 400, headers: { 'Content-Type': 'application/json' },
-      });
+      return json(400, { error: 'attendeeId, attendeeEmail, and sponsorId are required' });
     }
 
     // Load sponsor and attendee
@@ -80,68 +73,57 @@ app.http('adminManualCredit', {
     ]);
 
     if (!sponsor) {
-      return new Response(JSON.stringify({ error: 'Sponsor not found' }), {
-        status: 404, headers: { 'Content-Type': 'application/json' },
-      });
+      return json(404, { error: 'Sponsor not found' });
     }
     if (!attendee) {
-      return new Response(JSON.stringify({ error: 'Attendee not found' }), {
-        status: 404, headers: { 'Content-Type': 'application/json' },
-      });
+      return json(404, { error: 'Attendee not found' });
     }
 
     // Prevent duplicate credit
     if (attendee.completedStamps?.includes(sponsorId)) {
-      return new Response(JSON.stringify({ error: 'Attendee has already completed this sponsor stop' }), {
-        status: 409, headers: { 'Content-Type': 'application/json' },
-      });
+      return json(409, { error: 'Attendee has already completed this sponsor stop' });
     }
 
     const now = new Date().toISOString();
+    const pointValue = Number(sponsor.pointValue) || 0;
 
     // Record manual credit checkin
-    await createCheckin({
-      id:               uuidv4(),
-      attendeeId:       attendee.id,
-      attendeeEmail:    attendee.email,
-      sponsorId:        sponsor.id,
-      sponsorName:      sponsor.name,
-      pointsAwarded:    sponsor.pointValue,
-      answerSubmitted:  '[MANUAL CREDIT]',
-      attemptCount:     0,
-      rejectedAnswers:  [],
-      timestamp:        now,
-      conferenceYear:   Number(process.env.CONFERENCE_YEAR ?? '2026'),
-      manualCredit:     true,
-      manualCreditNote: note?.trim() || null,
-      manualCreditBy:   adminPrincipal.email,
-      failed:           false,
+    try {
+      await createCheckin({
+        id:               uuidv4(),
+        attendeeId:       attendee.id,
+        attendeeEmail:    attendee.email,
+        sponsorId:        sponsor.id,
+        sponsorName:      sponsor.name,
+        pointsAwarded:    pointValue,
+        answerSubmitted:  '[MANUAL CREDIT]',
+        attemptCount:     0,
+        rejectedAnswers:  [],
+        timestamp:        now,
+        conferenceYear:   Number(process.env.CONFERENCE_YEAR ?? '2026'),
+        manualCredit:     true,
+        manualCreditNote: note?.trim() || null,
+        manualCreditBy:   adminPrincipal.email,
+        failed:           false,
+      });
+    } catch (err) {
+      if (err.code === 409) {
+        return json(409, { error: 'Attendee has already completed this sponsor stop' });
+      }
+      throw err;
+    }
+
+    const { attendee: updated, alreadyCompleted } = await creditAttendee(attendee, sponsorId, pointValue, now);
+    if (alreadyCompleted) {
+      return json(409, { error: 'Attendee has already completed this sponsor stop' });
+    }
+
+    return json(200, {
+      message:       'Manual credit applied',
+      pointsAwarded: pointValue,
+      totalPoints:   updated.totalPoints,
+      isComplete:    updated.isComplete,
     });
-
-    // Update attendee
-    // Number() guards against string values hand-entered in Cosmos (would otherwise concatenate)
-    const newTotalPoints  = Number(attendee.totalPoints ?? 0) + Number(sponsor.pointValue);
-    const threshold       = Number(process.env.COMPLETION_THRESHOLD_POINTS ?? '1000');
-    const newIsComplete   = newTotalPoints >= threshold;
-    const newCompletedAt  = newIsComplete && !attendee.isComplete ? now : attendee.completedAt;
-
-    await upsertAttendee({
-      ...attendee,
-      totalPoints:     newTotalPoints,
-      completedStamps: [...(attendee.completedStamps ?? []), sponsorId],
-      isComplete:      newIsComplete,
-      completedAt:     newCompletedAt,
-    });
-
-    return new Response(
-      JSON.stringify({
-        message:       'Manual credit applied',
-        pointsAwarded: sponsor.pointValue,
-        totalPoints:   newTotalPoints,
-        isComplete:    newIsComplete,
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
   },
 });
 
@@ -170,22 +152,19 @@ app.http('adminListAttendees', {
     // Sort by totalPoints desc, then name
     attendees.sort((a, b) => (b.totalPoints ?? 0) - (a.totalPoints ?? 0));
 
-    return new Response(
-      JSON.stringify({
-        attendees: attendees.map(a => ({
-          id:         a.id,
-          email:      a.email,
-          firstName:  a.firstName,
-          lastName:   a.lastName,
-          points:     a.totalPoints ?? 0,
-          completed:  a.isComplete ?? false,
-          completedAt: a.completedAt ?? null,
-          stampCount: (a.completedStamps ?? []).length,
-          createdAt:  a.createdAt,
-        })),
-        total: attendees.length,
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+    return json(200, {
+      attendees: attendees.map(a => ({
+        id:         a.id,
+        email:      a.email,
+        firstName:  a.firstName,
+        lastName:   a.lastName,
+        points:     a.totalPoints ?? 0,
+        completed:  a.isComplete ?? false,
+        completedAt: a.completedAt ?? null,
+        stampCount: (a.completedStamps ?? []).length,
+        createdAt:  a.createdAt,
+      })),
+      total: attendees.length,
+    });
   },
 });

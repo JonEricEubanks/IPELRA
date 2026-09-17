@@ -10,6 +10,7 @@
 import { app } from '@azure/functions';
 import { requireAdminAuth, forbiddenResponse } from '../lib/auth.js';
 import { getFlaggedAnswers } from '../lib/cosmos.js';
+import { jsonResponse as json } from '../lib/http.js';
 
 app.http('adminFlagged', {
   methods: ['GET'],
@@ -41,13 +42,10 @@ app.http('adminFlagged', {
       });
     }
 
-    return new Response(
-      JSON.stringify({
-        flaggedBySize: Object.values(grouped).sort((a, b) => b.entries.length - a.entries.length),
-        totalFlagged:  flagged.length,
-        asOf:          new Date().toISOString(),
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+    return json(200, {
+      flaggedBySize: Object.values(grouped).sort((a, b) => b.entries.length - a.entries.length),
+      totalFlagged:  flagged.length,
+      asOf:          new Date().toISOString(),
+    });
   },
 });

@@ -20,6 +20,7 @@ function getClient() {
 }
 
 const DB_NAME = 'ipelra-passport';
+const LEADERBOARD_LIMIT = 200;
 
 function db() {
   return getClient().database(DB_NAME);
@@ -125,6 +126,19 @@ export async function upsertAttendee(doc) {
 }
 
 /**
+ * Replaces an attendee document only if it hasn't changed since it was read
+ * (optimistic concurrency via the doc's _etag). Throws a Cosmos error with
+ * code 412 if another writer got there first.
+ */
+export async function replaceAttendee(doc) {
+  const options = doc._etag
+    ? { accessCondition: { type: 'IfMatch', condition: doc._etag } }
+    : undefined;
+  const { resource } = await attendees().item(doc.id, doc.email).replace(doc, options);
+  return resource;
+}
+
+/**
  * Returns ALL attendees for the current conference year.
  * Used by admin export and metrics.
  */
@@ -191,7 +205,7 @@ export async function getAllCheckins(conferenceYear) {
  * Returns all attendees for leaderboard purposes (minimal fields only).
  * Sorted in JS by totalPoints DESC, capped at `limit`.
  */
-export async function getAllAttendeesForLeaderboard(conferenceYear, limit = 200) {
+export async function getAllAttendeesForLeaderboard(conferenceYear, limit = LEADERBOARD_LIMIT) {
   const year = Number(conferenceYear);
   const { resources } = await attendees().items
     .query({

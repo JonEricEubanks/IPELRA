@@ -21,6 +21,10 @@ describe('parseScanUrl', () => {
     expect(parseScanUrl('http://gentle-flower-01d10d50f.7.azurestaticapps.net/scan/sp-1?c=xyz', ORIGIN)).toBeNull(); // http vs https
   });
 
+  it('rejects protocol-relative URLs (not a bare path)', () => {
+    expect(parseScanUrl('//evil.com/scan/sp-1?c=xyz', ORIGIN)).toBeNull();
+  });
+
   it('rejects non-scan paths on our origin', () => {
     expect(parseScanUrl(`${ORIGIN}/login`, ORIGIN)).toBeNull();
     expect(parseScanUrl(`${ORIGIN}/admin/dashboard`, ORIGIN)).toBeNull();

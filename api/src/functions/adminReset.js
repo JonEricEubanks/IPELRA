@@ -17,6 +17,7 @@ import { app } from '@azure/functions';
 import { requireAdminAuth, forbiddenResponse } from '../lib/auth.js';
 import { getAllAttendees, getAllCheckins, upsertAttendee } from '../lib/cosmos.js';
 import { checkins as checkinsContainer } from '../lib/cosmos.js';
+import { jsonResponse as json } from '../lib/http.js';
 
 app.http('adminReset', {
   methods: ['POST'],
@@ -28,19 +29,16 @@ app.http('adminReset', {
 
     let body;
     try { body = await request.json(); } catch {
-      return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      return json(400, { error: 'Invalid JSON' });
     }
 
     const year = process.env.CONFERENCE_YEAR ?? '2026';
     const expectedToken = `RESET-${year}`;
 
     if (body.confirmToken !== expectedToken) {
-      return new Response(
-        JSON.stringify({
-          error: `Confirmation token required. Send { "confirmToken": "${expectedToken}" } to proceed.`,
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return json(400, {
+        error: `Confirmation token required. Send { "confirmToken": "${expectedToken}" } to proceed.`,
+      });
     }
 
     console.warn(`[adminReset] Conference reset initiated by ${admin.email} for year ${year}`);
@@ -65,15 +63,12 @@ app.http('adminReset', {
       }
     }
 
-    return new Response(
-      JSON.stringify({
-        message:          `Conference ${year} data archived successfully.`,
-        archivedAttendees,
-        archivedCheckins,
-        archivedBy:       admin.email,
-        archivedAt:       new Date().toISOString(),
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+    return json(200, {
+      message:          `Conference ${year} data archived successfully.`,
+      archivedAttendees,
+      archivedCheckins,
+      archivedBy:       admin.email,
+      archivedAt:       new Date().toISOString(),
+    });
   },
 });

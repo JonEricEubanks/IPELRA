@@ -1,7 +1,7 @@
 // ============================================================
 // Azure Function App — Windows Consumption Plan (Y1)
 // Project: IPELRA Conference Passport
-// Runtime: Node.js 20 / Azure Functions v4
+// Runtime: Node.js 22 / Azure Functions v4
 // ============================================================
 
 @description('Azure region for all resources')
@@ -18,6 +18,9 @@ param appInsightsConnectionString string
 
 @description('Application Insights instrumentation key')
 param appInsightsInstrumentationKey string
+
+@description('Log Analytics workspace resource ID for Function App diagnostic logs')
+param logAnalyticsWorkspaceId string
 
 @description('Cosmos DB primary connection string')
 @secure()
@@ -144,7 +147,7 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
         }
         {
           name: 'WEBSITE_NODE_DEFAULT_VERSION'
-          value: '~20'
+          value: '~22'
         }
         {
           name: 'WEBSITE_RUN_FROM_PACKAGE'
@@ -207,7 +210,26 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
     }
   }
 }
-
+// ── Diagnostic settings → Log Analytics ───────────────────────────────
+resource functionAppDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: 'diag-${functionAppName}'
+  scope: functionApp
+  properties: {
+    workspaceId: logAnalyticsWorkspaceId
+    logs: [
+      {
+        category: 'FunctionAppLogs'
+        enabled: true
+      }
+    ]
+    metrics: [
+      {
+        category: 'AllMetrics'
+        enabled: true
+      }
+    ]
+  }
+}
 // ── Outputs ──────────────────────────────────────────────────
 output functionAppName string = functionApp.name
 output functionAppId string = functionApp.id

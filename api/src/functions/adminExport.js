@@ -14,6 +14,7 @@
 import { app } from '@azure/functions';
 import { requireAdminAuth, validateExportSecret } from '../lib/auth.js';
 import { getAllAttendees } from '../lib/cosmos.js';
+import { jsonResponse as json } from '../lib/http.js';
 
 function toCsvRow(values) {
   return values
@@ -52,10 +53,7 @@ app.http('adminExport', {
     }
 
     if (!authorized) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized. Provide admin credentials or a valid x-export-secret header.' }),
-        { status: 403, headers: { 'Content-Type': 'application/json' } }
-      );
+      return json(403, { error: 'Unauthorized. Provide admin credentials or a valid x-export-secret header.' });
     }
 
     const year = process.env.CONFERENCE_YEAR ?? '2026';

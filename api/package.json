@@ -7,7 +7,7 @@
   "scripts": {
     "start": "func start",
     "build": "echo \"No build step — plain JS\"",
-    "test": "node --test \"src/**/*.test.js\""
+    "test": "node --test --experimental-test-module-mocks \"src/**/*.test.js\""
   },
   "dependencies": {
     "@azure/communication-email": "^1.0.0",

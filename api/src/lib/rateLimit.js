@@ -8,8 +8,16 @@
 
 const DEFAULT_WINDOW_MS   = 10 * 60 * 1000; // 10 minutes
 const DEFAULT_MAX_ATTEMPTS = 5;
+// Sweep expired buckets once the map grows past this many keys
+const PRUNE_THRESHOLD = 500;
 
-const buckets = new Map(); // key -> { count, windowStart }
+const buckets = new Map(); // key -> { count, windowStart, expiresAt }
+
+function prune(now) {
+  for (const [key, bucket] of buckets) {
+    if (bucket.expiresAt <= now) buckets.delete(key);
+  }
+}
 
 /**
  * Returns true if the caller identified by `key` is still within the allowed
@@ -21,7 +29,8 @@ export function isAllowed(key, { windowMs = DEFAULT_WINDOW_MS, maxAttempts = DEF
   const bucket = buckets.get(key);
 
   if (!bucket || now - bucket.windowStart >= windowMs) {
-    buckets.set(key, { count: 1, windowStart: now });
+    if (buckets.size >= PRUNE_THRESHOLD) prune(now);
+    buckets.set(key, { count: 1, windowStart: now, expiresAt: now + windowMs });
     return true;
   }
 

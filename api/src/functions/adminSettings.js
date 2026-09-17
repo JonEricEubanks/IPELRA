@@ -13,17 +13,30 @@ import { app } from '@azure/functions';
 import { v4 as uuidv4 } from 'uuid';
 import { requireAdminAuth, forbiddenResponse } from '../lib/auth.js';
 import { getAllSponsors, getSponsorById, upsertSponsor, deleteSponsor } from '../lib/cosmos.js';
+import { jsonResponse as json } from '../lib/http.js';
 
 const VALID_TIERS = ['partnership', 'leadership'];
+const DEFAULT_POINT_VALUES = { partnership: 100, leadership: 150 };
 
-function validateSponsorBody(body) {
+/**
+ * Validates a sponsor body. With `partial: true` only fields present in the
+ * body are checked (PATCH semantics).
+ */
+function validateSponsorBody(body, { partial = false } = {}) {
+  const has = (field) => !partial || Object.prototype.hasOwnProperty.call(body, field);
   const errors = [];
-  if (!body.name?.trim()) errors.push('name is required');
-  if (!VALID_TIERS.includes(body.tier)) errors.push(`tier must be one of: ${VALID_TIERS.join(', ')}`);
-  if (!body.promptQuestion?.trim()) errors.push('promptQuestion is required');
-  if (!body.promptAnswerKeyword?.trim()) errors.push('promptAnswerKeyword is required');
-  if (body.pointValue != null && (isNaN(Number(body.pointValue)) || Number(body.pointValue) < 0)) {
+  if (has('name') && !body.name?.trim()) errors.push('name is required');
+  if (has('tier') && !VALID_TIERS.includes(body.tier)) errors.push(`tier must be one of: ${VALID_TIERS.join(', ')}`);
+  if (has('promptQuestion') && !body.promptQuestion?.trim()) errors.push('promptQuestion is required');
+  if (has('promptAnswerKeyword') && !body.promptAnswerKeyword?.trim()) errors.push('promptAnswerKeyword is required');
+  if (has('pointValue') && body.pointValue != null && (isNaN(Number(body.pointValue)) || Number(body.pointValue) < 0)) {
     errors.push('pointValue must be a non-negative number');
+  }
+  if (has('isActive') && body.isActive != null && typeof body.isActive !== 'boolean') {
+    errors.push('isActive must be a boolean');
+  }
+  if (has('displayOrder') && body.displayOrder != null && !Number.isFinite(Number(body.displayOrder))) {
+    errors.push('displayOrder must be a number');
   }
   return errors;
 }
@@ -37,9 +50,7 @@ app.http('adminGetSponsors', {
     try { requireAdminAuth(request); } catch (err) { return forbiddenResponse(err.message); }
 
     const sponsors = await getAllSponsors();
-    return new Response(JSON.stringify({ sponsors }), {
-      status: 200, headers: { 'Content-Type': 'application/json' },
-    });
+    return json(200, { sponsors });
   },
 });
 
@@ -53,17 +64,15 @@ app.http('adminCreateSponsor', {
 
     let body;
     try { body = await request.json(); } catch {
-      return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      return json(400, { error: 'Invalid JSON' });
     }
 
     const errors = validateSponsorBody(body);
     if (errors.length) {
-      return new Response(JSON.stringify({ error: errors.join('; ') }), {
-        status: 400, headers: { 'Content-Type': 'application/json' },
-      });
+      return json(400, { error: errors.join('; ') });
     }
 
-    const pointValues = { partnership: 100, leadership: 150 };
+    const pointValues = DEFAULT_POINT_VALUES;
     const now = new Date().toISOString();
     const allSponsors = await getAllSponsors();
     const maxOrder = allSponsors.reduce((m, s) => Math.max(m, s.displayOrder ?? 0), 0);
@@ -85,9 +94,7 @@ app.http('adminCreateSponsor', {
     };
 
     const created = await upsertSponsor(doc);
-    return new Response(JSON.stringify({ sponsor: created }), {
-      status: 201, headers: { 'Content-Type': 'application/json' },
-    });
+    return json(201, { sponsor: created });
   },
 });
 
@@ -102,24 +109,20 @@ app.http('adminUpdateSponsor', {
     const id = request.params.id;
     const existing = await getSponsorById(id);
     if (!existing) {
-      return new Response(JSON.stringify({ error: 'Sponsor not found' }), {
-        status: 404, headers: { 'Content-Type': 'application/json' },
-      });
+      return json(404, { error: 'Sponsor not found' });
     }
 
     let body;
     try { body = await request.json(); } catch {
-      return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      return json(400, { error: 'Invalid JSON' });
     }
 
     const errors = validateSponsorBody(body);
     if (errors.length) {
-      return new Response(JSON.stringify({ error: errors.join('; ') }), {
-        status: 400, headers: { 'Content-Type': 'application/json' },
-      });
+      return json(400, { error: errors.join('; ') });
     }
 
-    const pointValues = { partnership: 100, leadership: 150 };
+    const pointValues = DEFAULT_POINT_VALUES;
     const doc = {
       ...existing,
       name:                body.name.trim(),
@@ -136,9 +139,7 @@ app.http('adminUpdateSponsor', {
     };
 
     const updated = await upsertSponsor(doc);
-    return new Response(JSON.stringify({ sponsor: updated }), {
-      status: 200, headers: { 'Content-Type': 'application/json' },
-    });
+    return json(200, { sponsor: updated });
   },
 });
 
@@ -153,14 +154,12 @@ app.http('adminPatchSponsor', {
     const id = request.params.id;
     const existing = await getSponsorById(id);
     if (!existing) {
-      return new Response(JSON.stringify({ error: 'Sponsor not found' }), {
-        status: 404, headers: { 'Content-Type': 'application/json' },
-      });
+      return json(404, { error: 'Sponsor not found' });
     }
 
     let patch;
     try { patch = await request.json(); } catch {
-      return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      return json(400, { error: 'Invalid JSON' });
     }
 
     // Allow only safe patchable fields
@@ -168,17 +167,27 @@ app.http('adminPatchSponsor', {
       'name', 'logoUrl', 'tagline', 'description', 'website', 'tier', 'pointValue',
       'promptQuestion', 'promptAnswerKeyword', 'isActive', 'displayOrder',
     ];
-    const doc = { ...existing };
+    const filtered = {};
     for (const field of allowedPatchFields) {
-      if (Object.prototype.hasOwnProperty.call(patch, field)) {
-        doc[field] = patch[field];
-      }
+      if (Object.prototype.hasOwnProperty.call(patch, field)) filtered[field] = patch[field];
     }
 
+    const errors = validateSponsorBody(filtered, { partial: true });
+    if (errors.length) {
+      return json(400, { error: errors.join('; ') });
+    }
+
+    // Coerce so Cosmos never stores numeric fields as strings
+    if (filtered.pointValue != null)   filtered.pointValue   = Number(filtered.pointValue);
+    if (filtered.displayOrder != null) filtered.displayOrder = Number(filtered.displayOrder);
+    for (const field of ['name', 'promptQuestion', 'promptAnswerKeyword']) {
+      if (typeof filtered[field] === 'string') filtered[field] = filtered[field].trim();
+    }
+
+    const doc = { ...existing, ...filtered };
+
     const updated = await upsertSponsor(doc);
-    return new Response(JSON.stringify({ sponsor: updated }), {
-      status: 200, headers: { 'Content-Type': 'application/json' },
-    });
+    return json(200, { sponsor: updated });
   },
 });
 
@@ -193,9 +202,7 @@ app.http('adminDeleteSponsor', {
     const id = request.params.id;
     const existing = await getSponsorById(id);
     if (!existing) {
-      return new Response(JSON.stringify({ error: 'Sponsor not found' }), {
-        status: 404, headers: { 'Content-Type': 'application/json' },
-      });
+      return json(404, { error: 'Sponsor not found' });
     }
 
     await deleteSponsor(id);

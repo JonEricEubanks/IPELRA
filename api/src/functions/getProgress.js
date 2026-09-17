@@ -11,6 +11,7 @@
 import { app } from '@azure/functions';
 import { requireAttendeeAuth, unauthorizedResponse } from '../lib/auth.js';
 import { getAttendeeById, getCheckinsByAttendee } from '../lib/cosmos.js';
+import { jsonResponse as json } from '../lib/http.js';
 
 app.http('getProgress', {
   methods: ['GET'],
@@ -26,10 +27,7 @@ app.http('getProgress', {
 
     const attendee = await getAttendeeById(principal.sub, principal.email);
     if (!attendee) {
-      return new Response(
-        JSON.stringify({ error: 'Attendee not found' }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
-      );
+      return json(404, { error: 'Attendee not found' });
     }
 
     // Load successful checkins only (failed=false or field absent)
@@ -44,24 +42,21 @@ app.http('getProgress', {
         manualCredit:  c.manualCredit,
       }));
 
-    return new Response(
-      JSON.stringify({
-        attendee: {
-          id:              attendee.id,
-          email:           attendee.email,
-          firstName:       attendee.firstName,
-          lastName:        attendee.lastName,
-          totalPoints:     attendee.totalPoints,
-          completedStamps: attendee.completedStamps,
-          isComplete:      attendee.isComplete,
-          completedAt:     attendee.completedAt,
-        },
-        completedCheckins,
-        threshold:       Number(process.env.COMPLETION_THRESHOLD_POINTS ?? '1000'),
-        passportLive:    process.env.PASSPORT_LIVE === 'true',
-        passportLockUtc: process.env.PASSPORT_LOCK_UTC ?? '2026-10-11T00:00:00Z',
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+    return json(200, {
+      attendee: {
+        id:              attendee.id,
+        email:           attendee.email,
+        firstName:       attendee.firstName,
+        lastName:        attendee.lastName,
+        totalPoints:     attendee.totalPoints,
+        completedStamps: attendee.completedStamps,
+        isComplete:      attendee.isComplete,
+        completedAt:     attendee.completedAt,
+      },
+      completedCheckins,
+      threshold:       Number(process.env.COMPLETION_THRESHOLD_POINTS ?? '1000'),
+      passportLive:    process.env.PASSPORT_LIVE === 'true',
+      passportLockUtc: process.env.PASSPORT_LOCK_UTC ?? '2026-10-11T00:00:00Z',
+    });
   },
 });

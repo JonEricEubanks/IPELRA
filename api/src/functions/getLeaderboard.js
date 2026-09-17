@@ -11,6 +11,7 @@
 import { app } from '@azure/functions';
 import { requireAttendeeAuth, unauthorizedResponse } from '../lib/auth.js';
 import { getAllAttendeesForLeaderboard } from '../lib/cosmos.js';
+import { jsonResponse as json } from '../lib/http.js';
 
 app.http('getLeaderboard', {
   methods: ['GET'],
@@ -55,9 +56,6 @@ app.http('getLeaderboard', {
       });
     }
 
-    return new Response(
-      JSON.stringify({ rankings: top50, myRank, totalParticipants }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+    return json(200, { rankings: top50, myRank, totalParticipants });
   },
 });

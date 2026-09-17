@@ -13,6 +13,7 @@
 import { app } from '@azure/functions';
 import { requireAttendeeAuth, unauthorizedResponse } from '../lib/auth.js';
 import { getActiveSponsors } from '../lib/cosmos.js';
+import { jsonResponse as json } from '../lib/http.js';
 
 // Fields that must NEVER be sent to the client
 const REDACTED_FIELDS = ['promptAnswerKeyword', 'qrCode'];
@@ -48,15 +49,12 @@ app.http('getSponsors', {
 
     const sponsorDocs = await getActiveSponsors();
 
-    return new Response(
-      JSON.stringify({
-        sponsors: sponsorDocs.map(sanitizeSponsor),
-        conferenceYear: Number(process.env.CONFERENCE_YEAR ?? '2026'),
-        passportLive: process.env.PASSPORT_LIVE === 'true',
-        threshold: Number(process.env.COMPLETION_THRESHOLD_POINTS ?? '1000'),
-        passportLockUtc: process.env.PASSPORT_LOCK_UTC ?? '2026-10-11T00:00:00Z',
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+    return json(200, {
+      sponsors: sponsorDocs.map(sanitizeSponsor),
+      conferenceYear: Number(process.env.CONFERENCE_YEAR ?? '2026'),
+      passportLive: process.env.PASSPORT_LIVE === 'true',
+      threshold: Number(process.env.COMPLETION_THRESHOLD_POINTS ?? '1000'),
+      passportLockUtc: process.env.PASSPORT_LOCK_UTC ?? '2026-10-11T00:00:00Z',
+    });
   },
 });

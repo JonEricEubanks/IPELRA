@@ -12,6 +12,7 @@
 import { app } from '@azure/functions';
 import { requireAttendeeAuth, unauthorizedResponse } from '../lib/auth.js';
 import { getAttendeeById, upsertAttendee } from '../lib/cosmos.js';
+import { jsonResponse as json } from '../lib/http.js';
 
 app.http('updateAttendeeName', {
   methods: ['PATCH'],
@@ -31,45 +32,30 @@ app.http('updateAttendeeName', {
     try {
       body = await request.json();
     } catch {
-      return new Response(
-        JSON.stringify({ error: 'Invalid request body.' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return json(400, { error: 'Invalid request body.' });
     }
 
     const firstName = (body.firstName ?? '').trim();
     const lastName  = (body.lastName  ?? '').trim();
 
     if (!firstName || !lastName) {
-      return new Response(
-        JSON.stringify({ error: 'First name and last name are required.' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return json(400, { error: 'First name and last name are required.' });
     }
 
     // Limit length to prevent abuse
     if (firstName.length > 60 || lastName.length > 60) {
-      return new Response(
-        JSON.stringify({ error: 'Name is too long.' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return json(400, { error: 'Name is too long.' });
     }
 
     // ── Load + update attendee ────────────────────────────────────────────
     const attendee = await getAttendeeById(principal.sub);
     if (!attendee) {
-      return new Response(
-        JSON.stringify({ error: 'Attendee not found.' }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
-      );
+      return json(404, { error: 'Attendee not found.' });
     }
 
     const updated = { ...attendee, firstName, lastName };
     await upsertAttendee(updated);
 
-    return new Response(
-      JSON.stringify({ firstName, lastName }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+    return json(200, { firstName, lastName });
   },
 });

@@ -7,6 +7,7 @@
 
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { jsonResponse } from './http.js';
 
 const JWT_SECRET = () => {
   const s = process.env.JWT_SECRET;
@@ -14,10 +15,21 @@ const JWT_SECRET = () => {
   return s;
 };
 
-const ADMIN_EMAILS = () => {
+// Pin the algorithm so a token can't be verified under a different one
+const JWT_ALGORITHM   = 'HS256';
+const VERIFY_OPTIONS  = { algorithms: [JWT_ALGORITHM] };
+
+const MAGIC_LINK_TTL_MS = 15 * 60 * 1000;
+// If the conference has already ended, still issue a usable short-lived token
+const POST_CONFERENCE_TOKEN_TTL_SEC = 24 * 60 * 60;
+
+/**
+ * Admin allowlist from ADMIN_EMAILS (comma-separated), lower-cased and trimmed.
+ */
+export function getAdminEmails() {
   const raw = process.env.ADMIN_EMAILS ?? '';
   return raw.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
-};
+}
 
 // Fixed conference expiry: midnight UTC Oct 11 (= 7pm CT Oct 10)
 const CONFERENCE_EXPIRY = Math.floor(new Date('2026-10-11T00:00:00Z').getTime() / 1000);
@@ -35,7 +47,7 @@ const CONFERENCE_EXPIRY = Math.floor(new Date('2026-10-11T00:00:00Z').getTime() 
 export function generateMagicToken() {
   const rawToken = crypto.randomUUID();
   const tokenHash = hashToken(rawToken);
-  const expiry = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+  const expiry = new Date(Date.now() + MAGIC_LINK_TTL_MS).toISOString();
   return { rawToken, tokenHash, expiry };
 }
 
@@ -54,10 +66,11 @@ export function hashToken(token) {
  * Expires: 2026-10-10T23:59:59Z (fixed conference expiry)
  */
 export function signAttendeeToken(attendeeId, email) {
+  const remaining = CONFERENCE_EXPIRY - Math.floor(Date.now() / 1000);
   return jwt.sign(
     { sub: attendeeId, email: email.trim().toLowerCase() },
     JWT_SECRET(),
-    { expiresIn: CONFERENCE_EXPIRY - Math.floor(Date.now() / 1000) }
+    { algorithm: JWT_ALGORITHM, expiresIn: remaining > 0 ? remaining : POST_CONFERENCE_TOKEN_TTL_SEC }
   );
 }
 
@@ -66,7 +79,7 @@ export function signAttendeeToken(attendeeId, email) {
  * Returns the decoded payload or throws if invalid/expired.
  */
 export function verifyAttendeeToken(token) {
-  return jwt.verify(token, JWT_SECRET());
+  return jwt.verify(token, JWT_SECRET(), VERIFY_OPTIONS);
 }
 
 /**
@@ -109,8 +122,30 @@ export function signAdminMagicToken(email) {
   return jwt.sign(
     { sub: email.trim().toLowerCase(), purpose: 'admin-login' },
     JWT_SECRET(),
-    { expiresIn: '15m' }
+    { algorithm: JWT_ALGORITHM, expiresIn: '15m' }
   );
+}
+
+/**
+ * Verifies an admin magic-link JWT and returns the admin email, or throws
+ * (invalid/expired → err.status 401, not an allow-listed admin → 403).
+ */
+export function verifyAdminMagicToken(token) {
+  let payload;
+  try {
+    payload = jwt.verify(token, JWT_SECRET(), VERIFY_OPTIONS);
+  } catch {
+    const err = new Error('Link expired or invalid');
+    err.status = 401;
+    throw err;
+  }
+  const email = (payload.sub ?? '').trim().toLowerCase();
+  if (payload.purpose !== 'admin-login' || !email || !getAdminEmails().includes(email)) {
+    const err = new Error('Not authorized');
+    err.status = 403;
+    throw err;
+  }
+  return email;
 }
 
 /**
@@ -121,7 +156,7 @@ export function signAdminToken(email) {
   return jwt.sign(
     { sub: email.trim().toLowerCase(), role: 'admin' },
     JWT_SECRET(),
-    { expiresIn: '8h' }
+    { algorithm: JWT_ALGORITHM, expiresIn: '8h' }
   );
 }
 
@@ -142,7 +177,7 @@ export function requireAdminAuth(request) {
   const token = authHeader.slice(7).trim();
   let payload;
   try {
-    payload = jwt.verify(token, JWT_SECRET());
+    payload = jwt.verify(token, JWT_SECRET(), VERIFY_OPTIONS);
   } catch {
     const err = new Error('Invalid or expired admin token');
     err.status = 403;
@@ -150,7 +185,7 @@ export function requireAdminAuth(request) {
   }
 
   const email = (payload.sub ?? '').trim().toLowerCase();
-  if (payload.role !== 'admin' || !email || !ADMIN_EMAILS().includes(email)) {
+  if (payload.role !== 'admin' || !email || !getAdminEmails().includes(email)) {
     const err = new Error('Forbidden: not an admin');
     err.status = 403;
     throw err;
@@ -197,18 +232,12 @@ export function validateExportSecret(request) {
  * Returns a standard 401 JSON response.
  */
 export function unauthorizedResponse(message = 'Unauthorized') {
-  return new Response(JSON.stringify({ error: message }), {
-    status: 401,
-    headers: { 'Content-Type': 'application/json' },
-  });
+  return jsonResponse(401, { error: message });
 }
 
 /**
  * Returns a standard 403 JSON response.
  */
 export function forbiddenResponse(message = 'Forbidden') {
-  return new Response(JSON.stringify({ error: message }), {
-    status: 403,
-    headers: { 'Content-Type': 'application/json' },
-  });
+  return jsonResponse(403, { error: message });
 }

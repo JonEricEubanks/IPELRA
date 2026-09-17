@@ -6,22 +6,13 @@
  */
 
 import { app } from '@azure/functions';
-import jwt from 'jsonwebtoken';
-import { signAdminMagicToken, signAdminToken } from '../lib/auth.js';
+import { signAdminMagicToken, signAdminToken, verifyAdminMagicToken, getAdminEmails } from '../lib/auth.js';
 import { sendAdminMagicLinkEmail } from '../lib/email.js';
 import { isAllowed } from '../lib/rateLimit.js';
+import { jsonResponse as json } from '../lib/http.js';
 
-const JWT_SECRET = () => process.env.JWT_SECRET;
-const ADMIN_EMAILS = () => (process.env.ADMIN_EMAILS ?? '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
 const APP_URL = () => process.env.APP_URL
   || (process.env.WEBSITE_HOSTNAME ? `https://${process.env.WEBSITE_HOSTNAME}` : 'http://localhost:4280');
-
-function json(status, body) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
 
 // POST /api/mgmt/auth/sendLink
 app.http('adminAuthSendLink', {
@@ -41,7 +32,7 @@ app.http('adminAuthSendLink', {
     }
 
     // Always return the same message — don't reveal whether email is authorized
-    if (!email || !ADMIN_EMAILS().includes(email)) {
+    if (!email || !getAdminEmails().includes(email)) {
       return json(200, { message: 'If that email is authorized, a login link has been sent.' });
     }
 
@@ -67,16 +58,13 @@ app.http('adminAuthVerify', {
     const token = req.query.get('token');
     if (!token) return json(400, { error: 'token is required' });
 
-    let payload;
+    let email;
     try {
-      payload = jwt.verify(token, JWT_SECRET());
-    } catch {
-      return json(401, { error: 'Link expired or invalid. Please request a new one.' });
-    }
-
-    const email = (payload.sub ?? '').trim().toLowerCase();
-    if (payload.purpose !== 'admin-login' || !email || !ADMIN_EMAILS().includes(email)) {
-      return json(403, { error: 'Not authorized' });
+      email = verifyAdminMagicToken(token);
+    } catch (err) {
+      return err.status === 403
+        ? json(403, { error: 'Not authorized' })
+        : json(401, { error: 'Link expired or invalid. Please request a new one.' });
     }
 
     const sessionToken = signAdminToken(email);

@@ -91,6 +91,7 @@ module functionApp 'modules/functionApp.bicep' = {
     uniqueSuffix: uniqueSuffix
     appInsightsConnectionString: appInsights.outputs.appInsightsConnectionString
     appInsightsInstrumentationKey: appInsights.outputs.appInsightsInstrumentationKey
+    logAnalyticsWorkspaceId: appInsights.outputs.logAnalyticsWorkspaceId
     cosmosConnectionString: cosmosDb.outputs.cosmosConnectionString
     jwtSecret: jwtSecret
     acsConnectionString: communicationServices.outputs.acsConnectionString
