@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Map, MessageCircle, Trophy } from 'lucide-react';
+import { readPendingScan, clearPendingScan, pendingScanPath } from '../lib/pendingScan';
 
 const CARDS = [
   {
@@ -35,18 +36,25 @@ export default function OnboardingPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
 
+  function finish() {
+    localStorage.setItem('passport_onboarded', '1');
+    // If they arrived here via a QR scan (first-time attendee), resume
+    // straight to that sponsor's question now that onboarding is done.
+    const pending = readPendingScan();
+    clearPendingScan();
+    navigate(pending ? pendingScanPath(pending) : '/', { replace: true });
+  }
+
   function advance() {
     if (step < CARDS.length - 1) {
       setStep(step + 1);
     } else {
-      localStorage.setItem('passport_onboarded', '1');
-      navigate('/', { replace: true });
+      finish();
     }
   }
 
   function skip() {
-    localStorage.setItem('passport_onboarded', '1');
-    navigate('/', { replace: true });
+    finish();
   }
 
   const card = CARDS[step];

@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getSponsors, getProgress, updateAttendeeName } from '../api';
 import { Flame } from 'lucide-react';
@@ -175,7 +175,6 @@ export function BottomNav({ active }) {
 
 export default function PassportHomePage() {
   const { attendee, updateAttendee } = useAuth();
-  const navigate = useNavigate();
 
   const [sponsors, setSponsors]           = useState([]);
   const [progress, setProgress]           = useState(null);
@@ -280,7 +279,14 @@ export default function PassportHomePage() {
     prevPctRef.current = pct;
   }, [pct]);
 
-  if (completed) { navigate('/completed', { replace: true }); return null; }
+  // Show the one-time celebration screen right after finishing the passport,
+  // but once the attendee has seen it, "View My Passport" (which lands here)
+  // should show this dashboard instead of bouncing them back to /completed.
+  const hasSeenCompletion = (() => {
+    try { return localStorage.getItem('ipelra_completion_seen') === 'true'; }
+    catch { return false; }
+  })();
+  if (completed && !hasSeenCompletion) return <Navigate to="/completed" replace />;
 
   const activeSponsors = sponsors
     .filter(s => s.isActive)
@@ -447,7 +453,7 @@ export default function PassportHomePage() {
           </div>
         )}
 
-        {error && <div className="form-error">{error}</div>}
+        {error && <div className="form-error" role="alert">{error}</div>}
 
         {!loading && !error && (
           <>

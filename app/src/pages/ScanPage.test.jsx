@@ -1,16 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import ScanPage from './ScanPage';
 import { readPendingScan, savePendingScan } from '../lib/pendingScan';
 
-vi.mock('../api', () => ({ submitCheckin: vi.fn(), getSponsors: vi.fn() }));
+vi.mock('../api', () => ({ submitCheckin: vi.fn(), getSponsors: vi.fn(), getProgress: vi.fn() }));
 vi.mock('../context/AuthContext', () => ({ useAuth: vi.fn() }));
 
-import { submitCheckin, getSponsors } from '../api';
+import { submitCheckin, getSponsors, getProgress } from '../api';
 import { useAuth } from '../context/AuthContext';
 
-const SPONSOR = { id: 'sponsor-1', name: 'MissionSquare', tier: 'leadership', logoUrl: null };
+const SPONSOR = {
+  id: 'sponsor-1', name: 'MissionSquare', tier: 'leadership', logoUrl: null,
+  question: 'What do we help you plan for?', points: 150,
+};
 
 function renderScan(path = '/scan/sponsor-1?c=secret123') {
   return render(
@@ -28,7 +31,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
   sessionStorage.clear();
-  getSponsors.mockResolvedValue({ sponsors: [SPONSOR] });
+  getSponsors.mockResolvedValue({ sponsors: [SPONSOR], passportLive: true });
+  getProgress.mockResolvedValue({ checkedInSponsorIds: [] });
 });
 
 describe('ScanPage', () => {
@@ -41,34 +45,55 @@ describe('ScanPage', () => {
     expect(submitCheckin).not.toHaveBeenCalled();
   });
 
-  it('submits the QR code, shows the sponsor, and clears any pending scan on success', async () => {
+  it('opens the sponsor question (not an auto-unlock) after a scan, clearing any pending scan', async () => {
     useAuth.mockReturnValue({ attendee: { id: 'a1' }, loading: false });
     savePendingScan({ sponsorId: 'sponsor-1', c: 'secret123' });
-    submitCheckin.mockResolvedValue({ correct: true, method: 'qr', pointsAwarded: 150, totalPoints: 400, isComplete: false });
     renderScan();
 
-    await waitFor(() => expect(screen.getByText('Stop Unlocked!')).toBeInTheDocument());
-    expect(submitCheckin).toHaveBeenCalledWith('sponsor-1', { qrCode: 'secret123' });
-    expect(screen.getByText('+150 pts')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText('MissionSquare')).toBeInTheDocument());
+    await screen.findByText(SPONSOR.question);
+    expect(screen.getByPlaceholderText(/type your answer/i)).toBeInTheDocument();
+    expect(submitCheckin).not.toHaveBeenCalled();
     expect(readPendingScan()).toBeNull();
   });
 
-  it('shows the already-collected view on a 409', async () => {
+  it('only awards points once the correct answer is submitted', async () => {
     useAuth.mockReturnValue({ attendee: { id: 'a1' }, loading: false });
-    submitCheckin.mockRejectedValue(Object.assign(new Error('dup'), { status: 409 }));
+    submitCheckin.mockResolvedValue({ correct: true, pointsAwarded: 150, totalPoints: 400, isComplete: false });
+    renderScan();
+
+    await screen.findByText(SPONSOR.question);
+    fireEvent.change(screen.getByPlaceholderText(/type your answer/i), { target: { value: 'retirement' } });
+    fireEvent.click(screen.getByRole('button', { name: /submit answer/i }));
+
+    await waitFor(() => expect(screen.getByText('Stop Unlocked!')).toBeInTheDocument());
+    expect(submitCheckin).toHaveBeenCalledWith('sponsor-1', { answer: 'retirement' });
+    expect(screen.getByText('+150 pts')).toBeInTheDocument();
+    expect(screen.getByText('MissionSquare')).toBeInTheDocument();
+  });
+
+  it('shows the already-collected view without prompting a question when already completed', async () => {
+    useAuth.mockReturnValue({ attendee: { id: 'a1' }, loading: false });
+    getProgress.mockResolvedValue({ checkedInSponsorIds: ['sponsor-1'] });
     renderScan();
 
     await waitFor(() => expect(screen.getByText('Already Collected')).toBeInTheDocument());
+    expect(submitCheckin).not.toHaveBeenCalled();
   });
 
-  it('shows the invalid-code view on a 422', async () => {
+  it('shows the passport-not-open view when the passport is not live', async () => {
     useAuth.mockReturnValue({ attendee: { id: 'a1' }, loading: false });
-    submitCheckin.mockRejectedValue(Object.assign(new Error('bad code'), { status: 422 }));
+    getSponsors.mockResolvedValue({ sponsors: [SPONSOR], passportLive: false });
+    renderScan();
+
+    await waitFor(() => expect(screen.getByText('Passport Not Open')).toBeInTheDocument());
+  });
+
+  it('shows the invalid-code view when the scanned sponsor cannot be found', async () => {
+    useAuth.mockReturnValue({ attendee: { id: 'a1' }, loading: false });
+    getSponsors.mockResolvedValue({ sponsors: [], passportLive: true });
     renderScan();
 
     await waitFor(() => expect(screen.getByText('Code Not Recognized')).toBeInTheDocument());
-    expect(screen.getByText('bad code')).toBeInTheDocument();
   });
 
   it('treats a missing ?c= as invalid without calling the API', async () => {
@@ -76,15 +101,15 @@ describe('ScanPage', () => {
     renderScan('/scan/sponsor-1');
 
     await waitFor(() => expect(screen.getByText('Code Not Recognized')).toBeInTheDocument());
-    expect(submitCheckin).not.toHaveBeenCalled();
+    expect(getSponsors).not.toHaveBeenCalled();
   });
 
-  it('still unlocks even if the sponsor lookup fails', async () => {
+  it('shows an error view (with retry) if the sponsor lookup fails', async () => {
     useAuth.mockReturnValue({ attendee: { id: 'a1' }, loading: false });
     getSponsors.mockRejectedValue(new Error('offline'));
-    submitCheckin.mockResolvedValue({ correct: true, pointsAwarded: 100, totalPoints: 100 });
     renderScan();
 
-    await waitFor(() => expect(screen.getByText('Stop Unlocked!')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Something Went Wrong')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 });

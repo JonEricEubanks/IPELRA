@@ -30,7 +30,8 @@ function renderVerify(search) {
 beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); verifyToken.mockResolvedValue(okResponse()); });
 
 describe('VerifyPage resume after login', () => {
-  it('follows a safe ?next= scan path from the magic link', async () => {
+  it('returning users: follows a safe ?next= scan path from the magic link immediately', async () => {
+    localStorage.setItem('passport_onboarded', '1');
     renderVerify('?token=abc&next=%2Fscan%2Fsp-1%3Fc%3Dxyz');
     await waitFor(() => expect(screen.getByText('SCAN PAGE')).toBeInTheDocument());
   });
@@ -41,7 +42,8 @@ describe('VerifyPage resume after login', () => {
     await waitFor(() => expect(screen.getByText('HOME')).toBeInTheDocument());
   });
 
-  it('falls back to the locally remembered scan when the link has no next=', async () => {
+  it('returning users: falls back to the locally remembered scan when the link has no next=', async () => {
+    localStorage.setItem('passport_onboarded', '1');
     savePendingScan({ sponsorId: 'sp-1', c: 'xyz' });
     renderVerify('?token=abc');
     await waitFor(() => expect(screen.getByText('SCAN PAGE')).toBeInTheDocument());
@@ -51,5 +53,11 @@ describe('VerifyPage resume after login', () => {
   it('sends first-time users to onboarding when there is nothing to resume', async () => {
     renderVerify('?token=abc');
     await waitFor(() => expect(screen.getByText('ONBOARDING')).toBeInTheDocument());
+  });
+
+  it('first-time scan-first users see onboarding first, with the scan re-saved to resume afterward', async () => {
+    renderVerify('?token=abc&next=%2Fscan%2Fsp-1%3Fc%3Dxyz');
+    await waitFor(() => expect(screen.getByText('ONBOARDING')).toBeInTheDocument());
+    expect(readPendingScan()).toMatchObject({ sponsorId: 'sp-1', c: 'xyz' });
   });
 });

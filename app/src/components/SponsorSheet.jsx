@@ -3,16 +3,16 @@
  * v4: full sponsor profile page, collapsible context panel in question phase
  *
  * Props:
- *   sponsor   — sponsor object from getSponsors
- *   onClose   — called when user dismisses the sheet
- *   onSuccess — called with the checkin result when correct answer submitted
+ *   sponsor      — sponsor object from getSponsors
+ *   onClose      — called when user dismisses the sheet
+ *   onSuccess    — called with the checkin result when correct answer submitted
+ *   initialPhase — 'profile' (default) or 'question' — pass 'question' to
+ *                  jump straight to the prompt (e.g. arriving via a QR scan)
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { submitCheckin } from '../api';
 import SponsorLogo from './SponsorLogo';
-import QrScannerSheet from './QrScannerSheet';
 
 // ── Tier colour config ──────────────────────────────────────────────────────
 const TIER = {
@@ -49,8 +49,8 @@ const TIER = {
 };
 function getTier(tier) { return TIER[tier] ?? TIER.partnership; }
 
-export default function SponsorSheet({ sponsor, onClose, onSuccess }) {
-  const [phase,        setPhase]        = useState('profile');
+export default function SponsorSheet({ sponsor, onClose, onSuccess, initialPhase = 'profile' }) {
+  const [phase,        setPhase]        = useState(initialPhase);
   const [answer,       setAnswer]       = useState('');
   const [submitting,   setSubmitting]   = useState(false);
   const [submitError,  setSubmitError]  = useState('');
@@ -59,10 +59,8 @@ export default function SponsorSheet({ sponsor, onClose, onSuccess }) {
   const [shaking,      setShaking]      = useState(false);
   const [closing,      setClosing]      = useState(false);
   const [contextOpen,  setContextOpen]  = useState(false);
-  const [scanning,     setScanning]     = useState(false);
   const shakeRef  = useRef(null);
   const answerRef = useRef(null);
-  const navigate  = useNavigate();
 
   // Auto-focus answer input when entering question phase
   useEffect(() => {
@@ -281,7 +279,7 @@ export default function SponsorSheet({ sponsor, onClose, onSuccess }) {
                       </div>
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: '#1d3461' }}>Visit Website</div>
-                        <div style={{ fontSize: 11, color: '#74777f' }}>{websiteHost}</div>
+                        <div style={{ fontSize: 11, color: '#74777f' }}>{websiteHost} · opens in a new tab — switch back here to answer</div>
                       </div>
                     </div>
                     <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#9aa0aa' }}>open_in_new</span>
@@ -393,19 +391,8 @@ export default function SponsorSheet({ sponsor, onClose, onSuccess }) {
                           {sponsor.description}
                         </p>
                       )}
-                      {sponsor.website && (
-                        <a
-                          href={sponsor.website}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 8, fontSize: 12, color: '#254a84', fontWeight: 600, textDecoration: 'none' }}
-                          onClick={e => e.stopPropagation()}
-                        >
-                          <span className="material-symbols-outlined" style={{ fontSize: 14 }}>language</span>
-                          {websiteHost}
-                          <span className="material-symbols-outlined" style={{ fontSize: 13 }}>open_in_new</span>
-                        </a>
-                      )}
+                      {/* No website link here on purpose: the answer comes from the rep at the
+                          table, and leaving the app mid-question is how testers got lost. */}
                     </div>
                   )}
                 </div>
@@ -441,11 +428,26 @@ export default function SponsorSheet({ sponsor, onClose, onSuccess }) {
                 </div>
               )}
 
-              {/* Attempt nudge (1–2 wrong, before hint) */}
-              {attempts > 0 && attempts < 3 && !serverHint && (
-                <div style={{ fontSize: 13, color: '#74777f', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#c3c6cf' }}>chat_bubble</span>
-                  {attempts} attempt{attempts > 1 ? 's' : ''} — chat with their rep at the table for a clue!
+              {/* Nudge toward the table — gets louder with each miss */}
+              {attempts > 0 && (
+                <div style={{
+                  display: 'flex', gap: 10, alignItems: 'flex-start',
+                  background: attempts >= 2 ? '#fff7ed' : '#f8f9fc',
+                  border: `1.5px solid ${attempts >= 2 ? '#fdba74' : '#e2e5ed'}`,
+                  borderRadius: 14, padding: '12px 14px', marginBottom: 14,
+                }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 20, color: attempts >= 2 ? '#c2410c' : '#254a84', flexShrink: 0, fontVariationSettings: "'FILL' 1" }}>
+                    {attempts >= 2 ? 'directions_walk' : 'chat_bubble'}
+                  </span>
+                  <div style={{ fontSize: 13, lineHeight: 1.5, color: attempts >= 2 ? '#7c2d12' : '#43474e' }}>
+                    {attempts >= 3 ? (
+                      <><strong>Skip the guessing.</strong> Head to the <strong>{sponsor.name}</strong> table — their rep will give you the answer, and that&rsquo;s the whole point of the passport.</>
+                    ) : attempts === 2 ? (
+                      <><strong>One more try before a hint.</strong> Honestly, the fastest way to get this stamp is to walk over to the <strong>{sponsor.name}</strong> table and ask.</>
+                    ) : (
+                      <>Not sure? The <strong>{sponsor.name}</strong> rep at their table knows the answer — that&rsquo;s how this is meant to work.</>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -467,7 +469,7 @@ export default function SponsorSheet({ sponsor, onClose, onSuccess }) {
                 />
 
                 {submitError && (
-                  <div style={{ background: '#fef2f2', border: '1.5px solid #fca5a5', borderRadius: 12, padding: '10px 14px', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                  <div role="alert" style={{ background: '#fef2f2', border: '1.5px solid #fca5a5', borderRadius: 12, padding: '10px 14px', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                     <span className="material-symbols-outlined" style={{ color: '#dc2626', fontSize: 17, flexShrink: 0, marginTop: 1 }}>error</span>
                     <div style={{ fontSize: 13, color: '#b91c1c', fontWeight: 600 }}>{submitError}</div>
                   </div>
@@ -496,27 +498,11 @@ export default function SponsorSheet({ sponsor, onClose, onSuccess }) {
                   }
                 </button>
               </form>
-
-              <button
-                type="button"
-                onClick={() => setScanning(true)}
-                style={{ marginTop: 14, width: '100%', background: 'none', border: '1.5px dashed #c3c6cf', borderRadius: 14, padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#1d3461', cursor: 'pointer' }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>qr_code_scanner</span>
-                Or scan the QR code at this sponsor&rsquo;s table to unlock instantly
-              </button>
             </>
           )}
 
         </div>
       </div>
-
-      {scanning && (
-        <QrScannerSheet
-          onClose={() => setScanning(false)}
-          onScan={(path) => { setScanning(false); navigate(path); }}
-        />
-      )}
     </>
   );
 }

@@ -7,7 +7,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { verifyToken } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { readPendingScan, clearPendingScan, pendingScanPath } from '../lib/pendingScan.js';
+import { readPendingScan, savePendingScan, clearPendingScan, pendingScanPath } from '../lib/pendingScan.js';
+import { parseScanUrl } from '../lib/scanUrl.js';
 import { AlertTriangle } from 'lucide-react';
 
 export default function VerifyPage() {
@@ -28,7 +29,6 @@ export default function VerifyPage() {
     async function verify() {
       try {
         const res = await verifyToken(token);
-        if (!res) return; // api.js handles 401 redirect
         const data = await res.json();
 
         if (!res.ok) {
@@ -44,24 +44,31 @@ export default function VerifyPage() {
         // Store session
         login(data.token, data.attendee);
 
-        // Scan-first users: finish the QR unlock they started before logging in.
-        // Prefer `next` from the magic link (survives new tabs / other browsers),
-        // fall back to the locally remembered scan.
+        // Scan-first users: figure out where the QR unlock they started
+        // before logging in should resume. Prefer `next` from the magic link
+        // (survives new tabs / other browsers), fall back to the locally
+        // remembered scan.
         const nextParam = params.get('next');
-        const pending   = readPendingScan();
+        const pending    = readPendingScan();
         clearPendingScan();
-        const resumeTo  = (nextParam && /^\/scan\/[A-Za-z0-9._~-]+(\?c=[A-Za-z0-9._~-]+)?$/.test(nextParam))
-          ? nextParam
-          : pending ? pendingScanPath(pending) : null;
-        if (resumeTo) {
-          navigate(resumeTo, { replace: true });
+        const scanTarget = parseScanUrl(nextParam) ?? pending;
+
+        const hasOnboarded = localStorage.getItem('passport_onboarded');
+
+        if (!hasOnboarded) {
+          // First-time attendees always see onboarding first, even if they
+          // arrived via a QR scan. Re-save the scan so OnboardingPage can
+          // resume straight to the sponsor's question once it's done.
+          if (scanTarget) {
+            savePendingScan({ sponsorId: scanTarget.sponsorId, c: scanTarget.c });
+          }
+          navigate('/onboarding', { replace: true });
           return;
         }
 
-        // First-time users → onboarding; returning users → home
-        const hasOnboarded = localStorage.getItem('passport_onboarded');
-        if (!hasOnboarded) {
-          navigate('/onboarding', { replace: true });
+        // Returning users: resume the scan immediately, or go home.
+        if (scanTarget) {
+          navigate(pendingScanPath(scanTarget), { replace: true });
         } else {
           navigate('/', { replace: true });
         }

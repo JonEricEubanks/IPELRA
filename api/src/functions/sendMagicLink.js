@@ -20,6 +20,7 @@ import { safeNextPath } from '../lib/redirect.js';
 import { getAttendeeByEmail, upsertAttendee } from '../lib/cosmos.js';
 import { sendMagicLinkEmail } from '../lib/email.js';
 import { isAllowed } from '../lib/rateLimit.js';
+import { jsonResponse as json } from '../lib/http.js';
 
 // Simple email format check — not exhaustive; just prevents obvious garbage
 function isValidEmail(email) {
@@ -33,10 +34,7 @@ app.http('sendMagicLink', {
   handler: async (request) => {
     // ── Guard: app must be live ────────────────────────────────────────────
     if (process.env.PASSPORT_LIVE !== 'true') {
-      return new Response(
-        JSON.stringify({ error: 'The conference passport is not yet open. Please check back on October 5, 2026.' }),
-        { status: 429, headers: { 'Content-Type': 'application/json' } }
-      );
+      return json(429, { error: 'The conference passport is not yet open. Please check back on October 5, 2026.' });
     }
 
     // ── Parse + validate body ─────────────────────────────────────────────
@@ -44,10 +42,7 @@ app.http('sendMagicLink', {
     try {
       body = await request.json();
     } catch {
-      return new Response(
-        JSON.stringify({ error: 'Invalid JSON body' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return json(400, { error: 'Invalid JSON body' });
     }
 
     const email = (body.email ?? '').trim().toLowerCase();
@@ -56,33 +51,21 @@ app.http('sendMagicLink', {
     const next      = safeNextPath(body.next); // null unless it's a safe /scan/... path
 
     if (!isValidEmail(email)) {
-      return new Response(
-        JSON.stringify({ error: 'A valid email address is required' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return json(400, { error: 'A valid email address is required' });
     }
 
     // Name fields must be safe strings if provided (max 100 chars, no control chars)
     const safeNameRegex = /^[^\x00-\x1f]{1,100}$/;
     if (firstName && !safeNameRegex.test(firstName)) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid first name' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return json(400, { error: 'Invalid first name' });
     }
     if (lastName && !safeNameRegex.test(lastName)) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid last name' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return json(400, { error: 'Invalid last name' });
     }
 
     // ── Rate limit (per email) ────────────────────────────────────────────
     if (!isAllowed(`sendMagicLink:${email}`)) {
-      return new Response(
-        JSON.stringify({ error: 'Too many requests. Please wait a few minutes and try again.' }),
-        { status: 429, headers: { 'Content-Type': 'application/json' } }
-      );
+      return json(429, { error: 'Too many requests. Please wait a few minutes and try again.' });
     }
 
     // ── Generate token ────────────────────────────────────────────────────
@@ -92,13 +75,24 @@ app.http('sendMagicLink', {
     const existing = await getAttendeeByEmail(email);
     const now = new Date().toISOString();
 
+    // Some corporate mail servers delay/batch delivery, so an attendee may
+    // request several links before an earlier one arrives. Keep any
+    // still-unexpired outstanding tokens (instead of overwriting them) so
+    // whichever email lands first still works; verifyToken invalidates the
+    // rest as soon as one is used. Cap the list so repeated requests can't
+    // grow it unbounded.
+    const MAX_PENDING_MAGIC_LINKS = 5;
+    const pendingTokens = (existing?.magicLinkTokens ?? [])
+      .filter(t => t?.hash && t?.expiry && new Date(t.expiry) > new Date())
+      .slice(-(MAX_PENDING_MAGIC_LINKS - 1));
+    pendingTokens.push({ hash: tokenHash, expiry });
+
     const attendee = {
       id:                   existing?.id ?? uuidv4(),
       email,
       firstName:            firstName ?? existing?.firstName ?? null,
       lastName:             lastName  ?? existing?.lastName  ?? null,
-      magicLinkTokenHash:   tokenHash,
-      tokenExpiry:          expiry,
+      magicLinkTokens:      pendingTokens,
       totalPoints:          existing?.totalPoints          ?? 0,
       completedStamps:      existing?.completedStamps      ?? [],
       isComplete:           existing?.isComplete           ?? false,
@@ -119,9 +113,6 @@ app.http('sendMagicLink', {
     // ── Respond ───────────────────────────────────────────────────────────
     // Always return the same message regardless of whether the email existed
     // to prevent email enumeration
-    return new Response(
-      JSON.stringify({ message: 'If that email is valid, a login link is on its way. Check your inbox (and spam folder).' }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+    return json(200, { message: 'If that email is valid, a login link is on its way. Check your inbox (and spam folder).' });
   },
 });

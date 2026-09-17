@@ -2,23 +2,29 @@
  * ScanPage.jsx — /scan/:sponsorId?c=<qrCode>
  *
  * Landing page for the printed sponsor QR codes. Attendees scan with their
- * phone's native camera; this route unlocks the stop.
+ * phone's native camera (or the in-app scanner); this route identifies the
+ * sponsor and opens their prompt question — exactly like tapping the
+ * sponsor's card in-app. Scanning never awards points by itself; the
+ * attendee still has to answer the question correctly to earn the stamp.
  *
  * - Not logged in → remember the scan (localStorage, 30 min), go to /login.
  *   LoginPage shows what was scanned and threads it through the magic link;
  *   VerifyPage brings the attendee back here after login.
- * - Logged in    → POST /api/checkin with { qrCode }, then show the result.
+ * - Logged in    → identify the sponsor from the scanned link, then render
+ *   its prompt question via SponsorSheet (answering it calls POST /api/checkin).
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { submitCheckin, getSponsors } from '../api';
+import { getSponsors, getProgress } from '../api';
 import { savePendingScan, clearPendingScan } from '../lib/pendingScan';
+import SponsorSheet from '../components/SponsorSheet';
 import SponsorLogo from '../components/SponsorLogo';
 
 const STATUS = {
   WORKING:  'working',
+  QUESTION: 'question',
   SUCCESS:  'success',
   ALREADY:  'already',
   INVALID:  'invalid',
@@ -40,7 +46,7 @@ export default function ScanPage() {
   const [result, setResult]   = useState(null);
   const [sponsor, setSponsor] = useState(null);
   const [message, setMessage] = useState('');
-  const submitted = useRef(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (loading) return;
@@ -57,35 +63,47 @@ export default function ScanPage() {
       return;
     }
 
-    // Guard against React StrictMode / re-renders double-firing the check-in
-    if (submitted.current) return;
-    submitted.current = true;
     clearPendingScan();
 
+    let cancelled = false;
     (async () => {
-      // Sponsor details are only for display — never block the unlock on them
-      getSponsors()
-        .then(d => setSponsor((d?.sponsors ?? []).find(s => s.id === sponsorId) ?? null))
-        .catch(() => {});
-
       try {
-        const data = await submitCheckin(sponsorId, { qrCode: code });
-        if (!data) return; // api.js already redirected on 401
-        setResult(data);
-        setStatus(STATUS.SUCCESS);
-      } catch (err) {
-        if      (err?.status === 409) setStatus(STATUS.ALREADY);
-        else if (err?.status === 423) { setStatus(STATUS.CLOSED);  setMessage(err.message); }
-        else if (err?.status === 422 || err?.status === 404 || err?.status === 400) {
-          setStatus(STATUS.INVALID);
-          setMessage(err.message || 'This QR code isn\u2019t valid. Try answering the question at the table instead.');
-        } else {
-          setStatus(STATUS.ERROR);
-          setMessage(err?.message || 'Something went wrong. Please try again.');
+        const [sponsorsData, progress] = await Promise.all([
+          getSponsors(),
+          getProgress().catch(() => null),
+        ]);
+        if (cancelled) return;
+
+        if (sponsorsData.passportLive === false) {
+          setStatus(STATUS.CLOSED);
+          return;
         }
+
+        const found = (sponsorsData.sponsors ?? []).find(s => s.id === sponsorId);
+        if (!found) {
+          setStatus(STATUS.INVALID);
+          setMessage('This QR code isn\u2019t valid. Try answering the question at the table instead.');
+          return;
+        }
+        setSponsor(found);
+
+        if (progress?.checkedInSponsorIds?.includes(sponsorId)) {
+          setStatus(STATUS.ALREADY);
+          return;
+        }
+
+        setStatus(STATUS.QUESTION);
+      } catch (err) {
+        if (cancelled) return;
+        // 401/403 already triggers a redirect to /login inside api.js
+        if (err?.status === 401 || err?.status === 403) return;
+        setStatus(STATUS.ERROR);
+        setMessage(err?.message || 'Something went wrong. Please try again.');
       }
     })();
-  }, [loading, attendee, sponsorId, code, navigate]);
+
+    return () => { cancelled = true; };
+  }, [loading, attendee, sponsorId, code, navigate, attempt]);
 
   useEffect(() => {
     if (status !== STATUS.SUCCESS) return;
@@ -98,8 +116,26 @@ export default function ScanPage() {
       <Shell dark>
         <img src="/logo-text.png" alt="IPELRA" style={{ width: 160, objectFit: 'contain', marginBottom: 8 }} />
         <div className="spinner" style={{ borderTopColor: '#ffffff', borderColor: 'rgba(255,255,255,0.2)' }} />
-        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 15 }}>Unlocking your stop\u2026</p>
+        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 15 }}>Finding your stop\u2026</p>
       </Shell>
+    );
+  }
+
+  if (status === STATUS.QUESTION && sponsor) {
+    return (
+      <>
+        {/* Branded backdrop so the sheet doesn't float over an empty grey page */}
+        <Shell dark>
+          <img src="/logo-text.png" alt="IPELRA" style={{ width: 160, objectFit: 'contain', marginBottom: 8, opacity: 0.9 }} />
+          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 14 }}>Answer the question to collect this stop</p>
+        </Shell>
+        <SponsorSheet
+          sponsor={sponsor}
+          initialPhase="question"
+          onClose={() => navigate('/', { replace: true })}
+          onSuccess={(data) => { setResult(data); setStatus(STATUS.SUCCESS); }}
+        />
+      </>
     );
   }
 
@@ -143,7 +179,7 @@ export default function ScanPage() {
       <Shell>
         <Tile gradient="linear-gradient(135deg, #92400e 0%, #b45309 100%)" icon="schedule" />
         <h1 style={h1}>Passport Not Open</h1>
-        <p style={p}>{message}</p>
+        <p style={p}>The conference passport is not yet open. Please check back soon.</p>
         <button className="btn btn-primary btn-full btn-lg" style={{ maxWidth: 360 }} onClick={() => navigate('/', { replace: true })}>
           Back to Passport
         </button>
@@ -161,7 +197,7 @@ export default function ScanPage() {
         Open My Passport
       </button>
       {status === STATUS.ERROR && (
-        <button className="btn btn-ghost" onClick={() => { submitted.current = false; setStatus(STATUS.WORKING); }}>
+        <button className="btn btn-ghost" onClick={() => { setStatus(STATUS.WORKING); setAttempt(a => a + 1); }}>
           Try Again
         </button>
       )}

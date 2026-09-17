@@ -17,7 +17,10 @@ export default function CompletedPage() {
   useEffect(() => {
     getProgress()
       .then(p => {
-        if (!p.completed) navigate('/', { replace: true });
+        if (!p.completed) { navigate('/', { replace: true }); return; }
+        // Mark the celebration as seen so "View My Passport" below shows the
+        // real dashboard instead of bouncing back to this screen.
+        try { localStorage.setItem('ipelra_completion_seen', 'true'); } catch { /* ignore */ }
         setCompletedAt(p.completedAt);
       })
       .catch(() => {});

@@ -42,7 +42,7 @@ function magicLinkHtml(verifyUrl, firstName) {
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f6f9; margin: 0; padding: 24px;">
   <div style="max-width: 480px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
     <div style="text-align: center; margin-bottom: 24px;">
-      <img src="https://ipelra.org/wp-content/uploads/2021/09/ipelra-logo.png" alt="IPELRA" style="height: 48px;" />
+      <img src="${APP_URL()}/logo-text.png" alt="IPELRA" style="height: 40px;" />
     </div>
     <h2 style="color: #1a2e4a; margin: 0 0 8px; font-size: 22px;">Your Conference Passport Link</h2>
     <p style="color: #555; font-size: 15px; line-height: 1.5; margin: 0 0 24px;">${greeting}<br/><br/>
@@ -81,7 +81,7 @@ function completionHtml(firstName, completedAt) {
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f6f9; margin: 0; padding: 24px;">
   <div style="max-width: 480px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
     <div style="text-align: center; margin-bottom: 24px;">
-      <img src="https://ipelra.org/wp-content/uploads/2021/09/ipelra-logo.png" alt="IPELRA" style="height: 48px;" />
+      <img src="${APP_URL()}/logo-text.png" alt="IPELRA" style="height: 40px;" />
     </div>
     <h2 style="color: #1a2e4a; margin: 0 0 8px; font-size: 22px;">🎉 ${greeting}</h2>
     <p style="color: #555; font-size: 15px; line-height: 1.5; margin: 0 0 16px;">
@@ -197,7 +197,7 @@ export async function sendAdminMagicLinkEmail(toEmail, loginUrl) {
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f6f9; margin: 0; padding: 24px;">
   <div style="max-width: 480px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
     <div style="text-align: center; margin-bottom: 24px;">
-      <img src="https://ipelra.org/wp-content/uploads/2021/09/ipelra-logo.png" alt="IPELRA" style="height: 48px;" />
+      <img src="${APP_URL()}/logo-text.png" alt="IPELRA" style="height: 40px;" />
     </div>
     <h2 style="color: #1a2e4a; margin: 0 0 8px; font-size: 22px;">Admin Login Link</h2>
     <p style="color: #555; font-size: 15px; line-height: 1.5; margin: 0 0 24px;">
