@@ -406,7 +406,7 @@ Run this checklist **at least 48 hours before October 5, 2026**.
 
 ### Function App cold start — slow first request
 
-The warmup timer runs every 10 minutes on Oct 5–10, 6AM–6PM CT. Outside those hours the first request may take ~3–5 seconds. Subsequent requests will be fast.
+The warmup timer runs every 10 minutes from 6 AM–10:59 PM CT, Sun Oct 4 – Wed Oct 7. Outside those hours the first request may take ~3–5 seconds. Subsequent requests will be fast.
 
 ### Attendee lost their magic link
 
@@ -446,7 +446,7 @@ The two highest-traffic moments are opening day registration and the lunch spons
 
 ### Cold start management
 
-The warmup timer (`warmup.js`) fires every 10 minutes from **6 AM–6 PM CT on Oct 5–10** to keep a function instance warm. This eliminates the 2–3 second cold-start delay during all conference hours.
+The warmup timer (`warmup.js`) fires every 10 minutes from **6 AM–10:59 PM CT, Sun Oct 4 – Wed Oct 7** (Sunday registration through the raffle) to keep a function instance warm. This eliminates the 2–3 second cold-start delay during all conference hours.
 
 **Recommended:** Have a staff member open the app once ~10–15 minutes before doors open on October 5. This pre-warms the instance before the first attendee wave arrives.
 

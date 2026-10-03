@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" font-family="Georgia,'Iowan Old Style','Palatino Linotype',serif">
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f8f0de"/><stop offset="1" stop-color="#efe1c3"/></linearGradient>
+    <pattern id="grain" width="7" height="7" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".7" fill="#a88a55" opacity=".14"/></pattern>
+    <filter id="ink" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" seed="11" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.4 2.05" result="m"/>
+      <feComposite in="SourceGraphic" in2="m" operator="in"/>
+    </filter>
+    <marker id="arr" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" viewBox="0 0 12 12" refX="10" refY="6" orient="auto"><path d="M0 1 L10 6 L0 11z" fill="#b89a63"/></marker>
+    <clipPath id="frame"><rect width="1200" height="500" rx="20"/></clipPath>
+  </defs>
+  <style>
+    .mono{font-family:'Courier New',Courier,monospace}
+    .card{fill:#fcf7ec;stroke:#d9c6a0;stroke-width:1.5}
+    .t{font-size:17px;font-weight:700;fill:#2b2118}
+    .s{font-size:11px;fill:#6b5a45}
+    .lbl{font-size:10.5px;letter-spacing:3px;font-weight:700}
+    .thunk{animation:thunk 10s cubic-bezier(.2,.9,.3,1.25) infinite both;transform-box:fill-box;transform-origin:center}
+    @keyframes thunk{0%,18%{opacity:0;transform:scale(1.7)}22%{opacity:1;transform:scale(.94)}24%,92%{opacity:1;transform:scale(1)}97%,100%{opacity:0}}
+    .punch{animation:punch 10s ease-out infinite both;transform-box:fill-box;transform-origin:center}
+    @keyframes punch{0%,30%{opacity:0;transform:scale(.2)}34%,92%{opacity:1;transform:scale(1)}97%,100%{opacity:0}}
+    .sweep{stroke-dasharray:1;animation:sweep 10s linear infinite both}
+    @keyframes sweep{0%,30%{stroke-dashoffset:1}92%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
+    @media (prefers-reduced-motion: reduce){*{animation:none!important}}
+  </style>
+  <g clip-path="url(#frame)">
+    <rect width="1200" height="500" fill="url(#paper)"/>
+    <rect width="1200" height="500" fill="url(#grain)"/>
+
+    <!-- BEFORE -->
+    <text x="70" y="60" class="mono lbl" fill="#c2372b">BEFORE · ONE LINK, ONE USE</text>
+    <line x1="70" y1="72" x2="1130" y2="72" stroke="#e3d3b0"/>
+
+    <rect class="card" x="70" y="96" width="270" height="96" rx="10"/>
+    <g transform="translate(116 144)" fill="none" stroke="#2b2118" stroke-width="2.4" stroke-linejoin="round"><rect x="-22" y="-15" width="44" height="30" rx="3"/><path d="M-22 -15 L0 3 L22 -15"/></g>
+    <text x="158" y="140" class="t">Link emailed</text><text x="158" y="160" class="s mono">single-use token</text>
+
+    <rect class="card" x="390" y="96" width="270" height="96" rx="10"/>
+    <g transform="translate(434 140)" fill="none" stroke="#2f4a7a" stroke-width="3" stroke-linecap="round"><circle r="13"/><path d="M10 10 L22 22"/></g>
+    <text x="476" y="140" class="t">A scanner opens it</text><text x="476" y="160" class="s mono">mail security, seconds later</text>
+
+    <rect class="card" x="710" y="96" width="270" height="96" rx="10"/>
+    <g transform="translate(754 144)" fill="none" stroke="#2b2118" stroke-width="2.4" stroke-linecap="round"><circle cy="-10" r="9"/><path d="M-17 20 C-17 4, 17 4, 17 20"/></g>
+    <text x="796" y="140" class="t">Attendee taps it</text><text x="796" y="160" class="s mono">token already spent</text>
+
+    <line x1="344" y1="144" x2="384" y2="144" stroke="#b89a63" stroke-width="2.5" marker-end="url(#arr)"/>
+    <line x1="664" y1="144" x2="704" y2="144" stroke="#b89a63" stroke-width="2.5" marker-end="url(#arr)"/>
+
+    <g transform="translate(1068 144) rotate(-9)">
+      <g class="thunk" filter="url(#ink)" fill="none" stroke="#c2372b">
+        <rect x="-82" y="-30" width="164" height="60" rx="4" stroke-width="3.4"/>
+        <text y="-3" text-anchor="middle" font-size="19" font-weight="700" letter-spacing="2" fill="#c2372b" stroke="none">LINK</text>
+        <text y="19" text-anchor="middle" font-size="19" font-weight="700" letter-spacing="2" fill="#c2372b" stroke="none">EXPIRED</text>
+      </g>
+    </g>
+
+    <!-- AFTER -->
+    <text x="70" y="258" class="mono lbl" fill="#3f6b4f">AFTER · ONE LINK, UP TO 15 OPENS, 60 MINUTES</text>
+    <line x1="70" y1="270" x2="1130" y2="270" stroke="#e3d3b0"/>
+
+    <rect x="70" y="296" width="790" height="140" rx="12" fill="#fcf7ec" stroke="#c99a2e" stroke-width="1.8"/>
+    <rect x="70" y="296" width="62" height="140" rx="12" fill="#7a1f2b"/>
+    <rect x="120" y="296" width="12" height="140" fill="#7a1f2b"/>
+    <text transform="translate(108 366) rotate(-90)" text-anchor="middle" font-size="15" font-weight="700" letter-spacing="3" fill="#fbefd9">ADMIT 15</text>
+
+    <g fill="none" stroke="#b89a63" stroke-width="1.6" stroke-dasharray="3 3">
+      <circle cx="170" cy="352" r="14"/><circle cx="216" cy="352" r="14"/><circle cx="262" cy="352" r="14"/><circle cx="308" cy="352" r="14"/><circle cx="354" cy="352" r="14"/>
+      <circle cx="400" cy="352" r="14"/><circle cx="446" cy="352" r="14"/><circle cx="492" cy="352" r="14"/><circle cx="538" cy="352" r="14"/><circle cx="584" cy="352" r="14"/>
+      <circle cx="630" cy="352" r="14"/><circle cx="676" cy="352" r="14"/><circle cx="722" cy="352" r="14"/><circle cx="768" cy="352" r="14"/><circle cx="814" cy="352" r="14"/>
+    </g>
+    <g class="punch" style="animation-delay:.2s"><circle cx="170" cy="352" r="12" fill="#e6d6b4" stroke="#2f4a7a" stroke-width="2.4"/></g>
+    <g class="punch" style="animation-delay:.6s"><circle cx="216" cy="352" r="12" fill="#e6d6b4" stroke="#2f4a7a" stroke-width="2.4"/></g>
+    <g class="punch" style="animation-delay:1.4s"><circle cx="262" cy="352" r="12" fill="#e6d6b4" stroke="#7a1f2b" stroke-width="2.4"/><path d="M256 352 l4 5 l8 -10" fill="none" stroke="#7a1f2b" stroke-width="2.4" stroke-linecap="round"/></g>
+
+    <text x="193" y="394" text-anchor="middle" font-size="11" class="mono" fill="#2f4a7a" font-weight="700">scanner ×2</text>
+    <text x="262" y="412" text-anchor="middle" font-size="11" class="mono" fill="#7a1f2b" font-weight="700">you</text>
+    <text x="560" y="394" text-anchor="middle" font-size="11" class="mono" fill="#9a8768">12 opens to spare</text>
+    <text x="160" y="322" font-size="10" letter-spacing="2" class="mono" fill="#9a8768">ANY UNEXPIRED LINK WORKS · A NEW REQUEST NEVER KILLS THE OLD ONES</text>
+    <text x="160" y="426" font-size="10" letter-spacing="1" class="mono" fill="#9a8768">login patches token fields only, so it can never overwrite points</text>
+
+    <!-- clock -->
+    <g transform="translate(1010 366)">
+      <circle r="72" fill="#fcf7ec" stroke="#2b2118" stroke-width="3"/>
+      <g stroke="#2b2118" stroke-width="2"><path d="M0 -66 V-58 M0 58 V66 M-66 0 H-58 M58 0 H66"/></g>
+      <g stroke="#9a8768" stroke-width="1.2"><path d="M33 -57 l-3 6 M57 -33 l-6 3 M57 33 l-6 -3 M33 57 l-3 -6 M-33 57 l3 -6 M-57 33 l6 -3 M-57 -33 l6 3 M-33 -57 l3 6"/></g>
+      <circle class="sweep" r="48" fill="none" stroke="#7a1f2b" stroke-opacity=".85" stroke-width="12" pathLength="1" transform="rotate(-90)"/>
+      <text y="8" text-anchor="middle" font-size="30" font-weight="700" fill="#2b2118">60</text>
+      <text y="25" text-anchor="middle" font-size="10" letter-spacing="2" class="mono" fill="#6b5a45">MIN</text>
+    </g>
+    <text x="1010" y="460" text-anchor="middle" font-size="10.5" letter-spacing="2" class="mono" fill="#9a8768">THEN IT EXPIRES</text>
+  </g>
+  <rect x="1" y="1" width="1198" height="498" rx="19" fill="none" stroke="#d9c6a0" stroke-width="2"/>
+</svg>

@@ -150,7 +150,7 @@ export default function ScanPage() {
         </div>
         <p style={{ ...p, marginBottom: 8 }}>
           You now have <strong>{result?.totalPoints ?? 0} points</strong>.
-          {result?.isComplete && ' Your passport is complete \u2014 head to the Prize Station!'}
+          {result?.isComplete && ' Your passport is complete \u2014 you\u2019re in Wednesday\u2019s raffle drawing!'}
         </p>
         <p style={{ fontSize: 13, color: '#74777f', marginBottom: 28 }}>Returning to your passport shortly\u2026</p>
         <button className="btn btn-primary btn-full btn-lg" style={{ maxWidth: 360 }} onClick={() => navigate('/', { replace: true })}>

@@ -264,7 +264,7 @@ function completionHtml(firstName, completedAt) {
       You completed the 2026 IPELRA Conference Passport on <strong>${timestamp} CT</strong>.
     </p>
     <p style="color: #555; font-size: 15px; line-height: 1.5; margin: 0 0 24px;">
-      You are now eligible for the prize drawing! Look for the prize entry station at the conference or check with an IPELRA staff member.
+      You are automatically entered in the <strong>Raffle Drawing on Wednesday, October 7 at 11:50 a.m.</strong> You must be present to win!
     </p>
     <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
     <p style="color: #bbb; font-size: 12px; text-align: center; margin: 0;">
@@ -327,7 +327,7 @@ export async function sendCompletionEmail(toEmail, firstName = null, completedAt
       '',
       `You completed the 2026 IPELRA Conference Passport on ${new Date(completedAt).toLocaleString('en-US', { timeZone: 'America/Chicago' })} CT.`,
       '',
-      'You are now eligible for the prize drawing!',
+      'You are automatically entered in the Raffle Drawing on Wednesday, October 7 at 11:50 a.m. You must be present to win!',
       '',
       'IPELRA Annual Conference 2026 · Eagle Ridge Resort, Galena IL',
     ].join('\n'),

@@ -21,6 +21,7 @@ funclogs/
 # Regenerate locally with: node scripts/generateQrCodes.js (requires APP_URL + Cosmos connection)
 assets/qr-sheets.html
 assets/local-test-qr*.png
+assets/sponsor-packets-*/
 
 # ── OS / Editor ───────────────────────────────────────────────
 .DS_Store
@@ -35,7 +36,7 @@ desktop.ini
 *.log
 npm-debug.log*
 
-# Demo-only answer key � never commit
+# Demo-only answer key � never commit
 demo-answer-key.html
 
 # Local data backups (contain answers + QR codes)

@@ -26,8 +26,8 @@ function fakeContext() {
   return ctx;
 }
 
-test('warmup: runs every 10 minutes, 11:00-22:59 UTC, Oct 5-10 (whole conference)', () => {
-  assert.equal(schedule, '0 */10 11-22 5-10 10 *');
+test('warmup: every 10 min, 6 AM–10:59 PM CT, Sun Oct 4 (registration) through Wed Oct 7', () => {
+  assert.equal(schedule, '0 */10 0-3,11-23 4-8 10 *');
 });
 
 test('warmup: logs the sponsor count on success', async () => {

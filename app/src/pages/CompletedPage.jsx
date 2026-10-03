@@ -104,7 +104,7 @@ export default function CompletedPage() {
 
         <div style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 'var(--radius-xl)', padding: 'var(--space-6)', width: '100%', maxWidth: 360, marginBottom: 'var(--space-5)' }}>
           <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.65)', margin: 0, lineHeight: 1.6 }}>
-            Look for the <strong style={{ color: '#adc8f2' }}>Prize Station</strong> near the conference registration desk to claim your entry ticket. A confirmation email is on its way to you!
+            You&rsquo;re automatically entered in the <strong style={{ color: '#adc8f2' }}>Raffle Drawing on Wednesday, Oct 7 at 11:50 a.m.</strong> &mdash; you must be present to win. A confirmation email is on its way to you!
           </p>
         </div>
 

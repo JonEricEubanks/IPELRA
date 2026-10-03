@@ -17,7 +17,7 @@ const FAQ = [
   {
     icon: Users,
     q: 'Do I have to visit every sponsor?',
-    a: 'No. There is a points threshold to complete your passport and enter the prize drawing. Once you hit it, you\'re in — keep going to earn bonus entries!',
+    a: 'Yes — completing your passport means earning points at every sponsor stop. Finish by Wednesday at 11:45 a.m. to be entered in the raffle drawing.',
   },
   {
     icon: MessageSquare,
@@ -32,7 +32,7 @@ const FAQ = [
   {
     icon: Trophy,
     q: 'Where do I go when my passport is complete?',
-    a: 'Look for the Prize Station near the registration desk. Show the completion screen to staff to receive your entry ticket.',
+    a: 'Nowhere — you\'re automatically entered in the raffle drawing on Wednesday, Oct 7 at 11:50 a.m. You must be present to win!',
   },
   {
     icon: ShieldAlert,

@@ -26,7 +26,7 @@ const CARDS = [
   {
     Icon: Trophy,
     title: 'Win a Prize',
-    body: 'Earn enough points to complete your passport, then you\'re entered to win. Look for the prize station at the conference.',
+    body: 'Complete your passport by Wednesday at 11:45 a.m. and you\'re automatically entered in the raffle drawing at 11:50 a.m. Must be present to win!',
     cta: 'Start My Passport!',
     color: '#1d3461',
   },

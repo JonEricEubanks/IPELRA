@@ -2,6 +2,9 @@
   "name": "ipelra-scripts",
   "version": "1.0.0",
   "type": "module",
+  "scripts": {
+    "export:sponsor-packets": "node generateSponsorPackets.js"
+  },
   "description": "Dev/admin scripts for IPELRA Conference Passport",
   "dependencies": {
     "@azure/cosmos": "^4.1.1",
