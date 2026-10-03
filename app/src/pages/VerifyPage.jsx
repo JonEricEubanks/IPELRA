@@ -18,68 +18,67 @@ export default function VerifyPage() {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
-
-    if (!token) {
+    if (!new URLSearchParams(window.location.search).get('token')) {
       navigate('/link-expired', { replace: true });
       return;
     }
-
-    async function verify() {
-      try {
-        const res = await verifyToken(token);
-        const data = await res.json();
-
-        if (!res.ok) {
-          if (res.status === 401) {
-            navigate('/link-expired', { replace: true });
-          } else {
-            setErrorMsg(data.error ?? 'Verification failed.');
-            setStatus('error');
-          }
-          return;
-        }
-
-        // Store session
-        login(data.token, data.attendee);
-
-        // Scan-first users: figure out where the QR unlock they started
-        // before logging in should resume. Prefer `next` from the magic link
-        // (survives new tabs / other browsers), fall back to the locally
-        // remembered scan.
-        const nextParam = params.get('next');
-        const pending    = readPendingScan();
-        clearPendingScan();
-        const scanTarget = parseScanUrl(nextParam) ?? pending;
-
-        const hasOnboarded = localStorage.getItem('passport_onboarded');
-
-        if (!hasOnboarded) {
-          // First-time attendees always see onboarding first, even if they
-          // arrived via a QR scan. Re-save the scan so OnboardingPage can
-          // resume straight to the sponsor's question once it's done.
-          if (scanTarget) {
-            savePendingScan({ sponsorId: scanTarget.sponsorId, c: scanTarget.c });
-          }
-          navigate('/onboarding', { replace: true });
-          return;
-        }
-
-        // Returning users: resume the scan immediately, or go home.
-        if (scanTarget) {
-          navigate(pendingScanPath(scanTarget), { replace: true });
-        } else {
-          navigate('/', { replace: true });
-        }
-      } catch {
-        setErrorMsg('Something went wrong. Please try again or request a new login link.');
-        setStatus('error');
-      }
-    }
-
     verify();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function verify() {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+
+    try {
+      const res = await verifyToken(token);
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          navigate('/link-expired', { replace: true });
+        } else {
+          setErrorMsg(data.error ?? 'Verification failed.');
+          setStatus('error');
+        }
+        return;
+      }
+
+      // Store session
+      login(data.token, data.attendee);
+
+      // Scan-first users: figure out where the QR unlock they started
+      // before logging in should resume. Prefer `next` from the magic link
+      // (survives new tabs / other browsers), fall back to the locally
+      // remembered scan.
+      const nextParam = params.get('next');
+      const pending    = readPendingScan();
+      clearPendingScan();
+      const scanTarget = parseScanUrl(nextParam) ?? pending;
+
+      const hasOnboarded = localStorage.getItem('passport_onboarded');
+
+      if (!hasOnboarded) {
+        // First-time attendees always see onboarding first, even if they
+        // arrived via a QR scan. Re-save the scan so OnboardingPage can
+        // resume straight to the sponsor's question once it's done.
+        if (scanTarget) {
+          savePendingScan({ sponsorId: scanTarget.sponsorId, c: scanTarget.c });
+        }
+        navigate('/onboarding', { replace: true });
+        return;
+      }
+
+      // Returning users: resume the scan immediately, or go home.
+      if (scanTarget) {
+        navigate(pendingScanPath(scanTarget), { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
+    } catch {
+      setErrorMsg('Something went wrong. Please try again or request a new login link.');
+      setStatus('error');
+    }
+  }
 
   if (status === 'verifying') {
     return (

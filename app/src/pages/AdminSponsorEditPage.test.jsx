@@ -62,7 +62,7 @@ describe('AdminSponsorEditPage (arriving from Dashboard "Fix" / "Review")', () =
     expect(screen.getByRole('button', { name: /“workday” ×2/ })).toHaveAttribute('data-pass', 'true');
     expect(screen.getByRole('button', { name: /“human capital”/ })).toHaveAttribute('data-pass', 'false');
 
-    fireEvent.change(screen.getByLabelText(/answer keyword/i), { target: { value: 'HCM' } });
+    fireEvent.change(screen.getByLabelText(/accepted answers/i), { target: { value: 'HCM' } });
     // Keyword "HCM": "HCM" passes (contains), bare "workday" now fails
     expect(screen.getByRole('button', { name: /“HCM”/ })).toHaveAttribute('data-pass', 'true');
     expect(screen.getByRole('button', { name: /“workday” ×2/ })).toHaveAttribute('data-pass', 'false');

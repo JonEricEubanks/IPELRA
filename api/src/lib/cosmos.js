@@ -20,7 +20,6 @@ function getClient() {
 }
 
 const DB_NAME = 'ipelra-passport';
-const LEADERBOARD_LIMIT = 200;
 
 function db() {
   return getClient().database(DB_NAME);
@@ -139,6 +138,24 @@ export async function replaceAttendee(doc) {
 }
 
 /**
+ * Sets only the given top-level fields on an attendee (Cosmos partial update),
+ * so it can never overwrite points/stamps written concurrently by a check-in.
+ */
+export async function patchAttendee(id, email, fields) {
+  const operations = Object.entries(fields).map(([key, value]) => ({ op: 'set', path: `/${key}`, value }));
+  const { resource } = await attendees().item(id, email.trim().toLowerCase()).patch(operations);
+  return resource;
+}
+
+/**
+ * Creates a new attendee document. Throws a Cosmos 409 if the id already exists.
+ */
+export async function createAttendee(doc) {
+  const { resource } = await attendees().items.create(doc);
+  return resource;
+}
+
+/**
  * Returns ALL attendees for the current conference year.
  * Used by admin export and metrics.
  */
@@ -202,10 +219,9 @@ export async function getAllCheckins(conferenceYear) {
 }
 
 /**
- * Returns all attendees for leaderboard purposes (minimal fields only).
- * Sorted in JS by totalPoints DESC, capped at `limit`.
+ * Returns every attendee for the leaderboard (minimal fields only).
  */
-export async function getAllAttendeesForLeaderboard(conferenceYear, limit = LEADERBOARD_LIMIT) {
+export async function getAllAttendeesForLeaderboard(conferenceYear) {
   const year = Number(conferenceYear);
   const { resources } = await attendees().items
     .query({
@@ -213,10 +229,7 @@ export async function getAllAttendeesForLeaderboard(conferenceYear, limit = LEAD
       parameters: [{ name: '@year', value: year }],
     })
     .fetchAll();
-  return resources
-    .filter(a => a.firstName)
-    .sort((a, b) => (b.totalPoints ?? 0) - (a.totalPoints ?? 0))
-    .slice(0, limit);
+  return resources;
 }
 
 /**

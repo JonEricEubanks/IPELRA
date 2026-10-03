@@ -27,7 +27,7 @@ export default function LinkExpiredPage() {
           Link Expired
         </h1>
         <p style={{ color: '#43474e', fontSize: 15, lineHeight: 1.6, maxWidth: 300, marginBottom: 32 }}>
-          Magic links expire after 15 minutes for security. Request a fresh one and you&rsquo;ll be right back in.
+          Magic links expire after 60 minutes for security. Request a fresh one and you&rsquo;ll be right back in.
         </p>
 
         <button

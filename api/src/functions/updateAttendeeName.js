@@ -11,7 +11,7 @@
 
 import { app } from '@azure/functions';
 import { requireAttendeeAuth, unauthorizedResponse } from '../lib/auth.js';
-import { getAttendeeById, upsertAttendee } from '../lib/cosmos.js';
+import { getAttendeeById, patchAttendee } from '../lib/cosmos.js';
 import { jsonResponse as json } from '../lib/http.js';
 
 app.http('updateAttendeeName', {
@@ -48,13 +48,12 @@ app.http('updateAttendeeName', {
     }
 
     // ── Load + update attendee ────────────────────────────────────────────
-    const attendee = await getAttendeeById(principal.sub);
+    const attendee = await getAttendeeById(principal.sub, principal.email);
     if (!attendee) {
       return json(404, { error: 'Attendee not found.' });
     }
 
-    const updated = { ...attendee, firstName, lastName };
-    await upsertAttendee(updated);
+    await patchAttendee(attendee.id, attendee.email, { firstName, lastName });
 
     return json(200, { firstName, lastName });
   },

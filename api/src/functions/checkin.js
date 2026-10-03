@@ -22,6 +22,7 @@
  * Returns 200: { correct: true, pointsAwarded, totalPoints, isComplete, completedAt? }
  * Returns 422: { correct: false, attemptsUsed?, hint?, message }
  * Returns 400/401/403/404/409/423: various error states
+ * Returns 503: answer recorded but points not yet credited — resubmitting repairs it
  */
 
 import { app } from '@azure/functions';
@@ -40,6 +41,49 @@ import { jsonResponse as json } from '../lib/http.js';
 
 const MAX_ATTEMPTS       = 3;
 const MAX_ANSWER_LENGTH  = 500;
+const COMPLETION_EMAIL_TIMEOUT_MS = 5000;
+
+const CREDIT_FAILED_MESSAGE = 'Your answer was saved, but we couldn\u2019t update your points just now. Please tap submit again.';
+
+// Awaited (not fire-and-forget): the host may freeze the instance once the response is sent.
+async function sendCompletionEmailSafely(email, firstName, completedAt) {
+  let timer;
+  try {
+    await Promise.race([
+      sendCompletionEmail(email, firstName, completedAt),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('timed out')), COMPLETION_EMAIL_TIMEOUT_MS); }),
+    ]);
+  } catch (err) {
+    console.error('[checkin] Completion email failed for', email, '-', err.message);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Returns the response body for a successful credit, or null if the stamp already existed. */
+async function creditAndRespond(attendee, sponsorId, pointValue, now) {
+  let result;
+  try {
+    result = await creditAttendee(attendee, sponsorId, pointValue, now);
+  } catch (err) {
+    console.error('[checkin] credit failed for', attendee.id, sponsorId, '-', err.message);
+    return json(503, { error: CREDIT_FAILED_MESSAGE });
+  }
+  const { attendee: updated, alreadyCompleted, newlyComplete } = result;
+  if (alreadyCompleted) {
+    return json(409, { error: 'You have already completed this sponsor stop' });
+  }
+  if (newlyComplete) {
+    await sendCompletionEmailSafely(attendee.email, attendee.firstName, now);
+  }
+  return json(200, {
+    correct:       true,
+    pointsAwarded: pointValue,
+    totalPoints:   updated.totalPoints,
+    isComplete:    updated.isComplete,
+    completedAt:   updated.completedAt,
+  });
+}
 
 app.http('checkin', {
   methods: ['POST'],
@@ -109,6 +153,12 @@ app.http('checkin', {
     const failedAttemptDoc = priorAttempts.find(c => c.failed === true);
     const attemptsUsed = failedAttemptDoc?.attemptCount ?? 0;
     const now = new Date().toISOString();
+
+    // ── Repair: an earlier correct answer was recorded but its points never landed ──
+    const successfulDoc = priorAttempts.find(c => c.failed !== true);
+    if (successfulDoc) {
+      return creditAndRespond(attendee, sponsorId, Number(successfulDoc.pointsAwarded) || 0, now);
+    }
 
     // ── Fuzzy match ──────────────────────────────────────────────────────
     const correct = isCorrectAnswer(sponsor.promptAnswerKeyword, answer);
@@ -195,26 +245,6 @@ app.http('checkin', {
     }
 
     // ── Update attendee totals (ETag-guarded, retried on conflict) ────────
-    const { attendee: updatedAttendee, alreadyCompleted, newlyComplete } =
-      await creditAttendee(attendee, sponsorId, pointValue, now);
-
-    if (alreadyCompleted) {
-      return json(409, { error: 'You have already completed this sponsor stop' });
-    }
-
-    // ── Send completion email (fire-and-forget) ───────────────────────────
-    if (newlyComplete) {
-      sendCompletionEmail(attendee.email, attendee.firstName, now).catch(err => {
-        console.error('[checkin] Completion email failed:', err.message);
-      });
-    }
-
-    return json(200, {
-      correct:       true,
-      pointsAwarded: pointValue,
-      totalPoints:   updatedAttendee.totalPoints,
-      isComplete:    updatedAttendee.isComplete,
-      completedAt:   updatedAttendee.completedAt,
-    });
+    return creditAndRespond(attendee, sponsorId, pointValue, now);
   },
 });

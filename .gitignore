@@ -34,3 +34,10 @@ desktop.ini
 # ── Logs ─────────────────────────────────────────────────────
 *.log
 npm-debug.log*
+
+# Demo-only answer key � never commit
+demo-answer-key.html
+
+# Local data backups (contain answers + QR codes)
+backups/
+assets/answer-keywords-backup-*.json

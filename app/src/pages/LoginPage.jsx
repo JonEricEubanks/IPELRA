@@ -95,7 +95,7 @@ export default function LoginPage() {
             </p>
           )}
           <p style={{ color: '#74777f', fontSize: 13, textAlign: 'center', marginBottom: 28 }}>
-            Link expires in 15 minutes · Check spam if it doesn't arrive
+            Link expires in 60 minutes · Check spam if it doesn't arrive
           </p>
           <button
             onClick={() => setSent(false)}

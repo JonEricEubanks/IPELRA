@@ -1,16 +1,18 @@
 /**
- * getLeaderboard.js — GET /api/leaderboard
+ * getLeaderboard.js — GET /api/leaderboard?page=<n|me>&pageSize=<n>
  *
- * Returns the top-50 attendees by points plus the calling user's rank
- * (appended even if outside top 50).
+ * Returns one page of ranked tie groups (see lib/leaderboard.js) plus the
+ * caller's own rank and the page it's on. `page=me` jumps to that page.
  *
  * Auth: requires valid attendee JWT
- * Returns 200: { rankings, myRank, totalParticipants }
+ * Returns 200: { groups, page, pageSize, totalPages, totalParticipants,
+ *                myRank, myPoints, myTiedWith, myPage }
  */
 
 import { app } from '@azure/functions';
 import { requireAttendeeAuth, unauthorizedResponse } from '../lib/auth.js';
 import { getAllAttendeesForLeaderboard } from '../lib/cosmos.js';
+import { buildLeaderboard } from '../lib/leaderboard.js';
 import { jsonResponse as json } from '../lib/http.js';
 
 app.http('getLeaderboard', {
@@ -25,37 +27,14 @@ app.http('getLeaderboard', {
       return unauthorizedResponse(err.message);
     }
 
+    const params   = new URL(request.url).searchParams;
+    const pageRaw  = params.get('page');
+    const page     = pageRaw === 'me' ? 'me' : Number(pageRaw) || 1;
+    const pageSize = params.get('pageSize') ?? undefined;
+
     const year = Number(process.env.CONFERENCE_YEAR ?? '2026');
-    const sorted = await getAllAttendeesForLeaderboard(year, 200);
+    const attendees = await getAllAttendeesForLeaderboard(year);
 
-    const totalParticipants = sorted.length;
-    const myFullIndex = sorted.findIndex(a => a.id === principal.sub);
-    const myRank = myFullIndex >= 0 ? myFullIndex + 1 : null;
-
-    // Build top-50 list
-    const top50 = sorted.slice(0, 50).map((a, i) => ({
-      rank:          i + 1,
-      firstName:     a.firstName,
-      lastInitial:   a.lastName ? a.lastName[0].toUpperCase() + '.' : '',
-      points:        a.totalPoints ?? 0,
-      isComplete:    a.isComplete ?? false,
-      isCurrentUser: a.id === principal.sub,
-    }));
-
-    // If current user falls outside top 50, append their entry with a separator hint
-    if (!top50.some(r => r.isCurrentUser) && myFullIndex >= 0) {
-      const me = sorted[myFullIndex];
-      top50.push({
-        rank:          myFullIndex + 1,
-        firstName:     me.firstName,
-        lastInitial:   me.lastName ? me.lastName[0].toUpperCase() + '.' : '',
-        points:        me.totalPoints ?? 0,
-        isComplete:    me.isComplete ?? false,
-        isCurrentUser: true,
-        isSeparate:    true,
-      });
-    }
-
-    return json(200, { rankings: top50, myRank, totalParticipants });
+    return json(200, buildLeaderboard(attendees, principal.sub, page, pageSize));
   },
 });

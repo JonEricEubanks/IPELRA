@@ -19,7 +19,8 @@ const JWT_SECRET = () => {
 const JWT_ALGORITHM   = 'HS256';
 const VERIFY_OPTIONS  = { algorithms: [JWT_ALGORITHM] };
 
-const MAGIC_LINK_TTL_MS = 15 * 60 * 1000;
+// Corporate/government mail can sit in filtering queues for 15+ minutes
+const MAGIC_LINK_TTL_MS = 60 * 60 * 1000;
 // If the conference has already ended, still issue a usable short-lived token
 const POST_CONFERENCE_TOKEN_TTL_SEC = 24 * 60 * 60;
 
@@ -42,7 +43,7 @@ const CONFERENCE_EXPIRY = Math.floor(new Date('2026-10-11T00:00:00Z').getTime() 
  *
  * rawToken — sent in the email link
  * tokenHash — SHA-256 of rawToken, stored in Cosmos (never store raw)
- * expiry — ISO 8601, 15 minutes from now
+ * expiry — ISO 8601, 60 minutes from now
  */
 export function generateMagicToken() {
   const rawToken = crypto.randomUUID();

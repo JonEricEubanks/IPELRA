@@ -147,8 +147,10 @@ export async function submitCheckin(sponsorId, unlock) {
   return data;
 }
 
-export async function getLeaderboard() {
-  const res = await request('/api/leaderboard');
+/** page: 1-based number, or 'me' for the page containing the current user. */
+export async function getLeaderboard(page = 1) {
+  const res = await request(`/api/leaderboard?page=${encodeURIComponent(page)}`);
+  await throwIfNotOk(res, 'Could not load rankings.');
   return res.json();
 }
 

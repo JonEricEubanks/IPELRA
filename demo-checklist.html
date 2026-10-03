@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IPELRA Passport — Virtual Demo Checklist</title>
+  <style>
+    :root {
+      --navy: #1d3461; --navy-2: #254a84; --sky: #6ea8d8;
+      --bg: #f4f6f9; --card: #fff; --text: #191c1d; --muted: #5c6573; --border: #dde3eb;
+      --ok: #1a7f5a; --ok-bg: #e6f6ef; --warn: #b45309; --warn-bg: #fff4e5; --danger: #b91c1c;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.45; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .page { max-width: 860px; margin: 0 auto; padding: 28px 22px 48px; }
+
+    header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 14px; border-bottom: 3px solid var(--navy); margin-bottom: 18px; }
+    header .brand { display: flex; align-items: center; gap: 12px; }
+    header img { height: 44px; }
+    header h1 { margin: 0; font-size: 1.35rem; color: var(--navy); letter-spacing: -0.3px; }
+    header p { margin: 2px 0 0; font-size: .85rem; color: var(--muted); }
+    .url { text-align: right; font-size: .78rem; color: var(--muted); }
+    .url strong { display: block; font-size: .9rem; color: var(--navy); font-family: Consolas, Menlo, monospace; letter-spacing: -.2px; }
+
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .span2 { grid-column: 1 / -1; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; break-inside: avoid; }
+    .card h2 { margin: 0 0 8px; font-size: .95rem; color: var(--navy); display: flex; align-items: center; gap: 8px; }
+    .card h2 .n { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--navy); color: #fff; font-size: .75rem; font-weight: 800; flex-shrink: 0; }
+    .card h2 .tag { margin-left: auto; font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+
+    ul.check { list-style: none; margin: 0; padding: 0; }
+    ul.check li { position: relative; padding: 4px 0 4px 26px; font-size: .88rem; border-bottom: 1px dashed #eef1f5; }
+    ul.check li:last-child { border-bottom: none; }
+    ul.check li::before { content: ""; position: absolute; left: 0; top: 7px; width: 14px; height: 14px; border: 2px solid var(--navy-2); border-radius: 3px; background: #fff; }
+    ul.check li em { color: var(--muted); font-style: normal; }
+    ul.check li .say { display: block; margin-top: 2px; padding: 5px 9px; background: #f0f4fb; border-left: 3px solid var(--sky); border-radius: 0 6px 6px 0; font-size: .82rem; color: #2c3e5c; font-style: italic; }
+
+    .callout { border-radius: 10px; padding: 10px 12px; font-size: .85rem; }
+    .callout.ok { background: var(--ok-bg); border: 1px solid #b7e4cf; color: #0b4d36; }
+    .callout.warn { background: var(--warn-bg); border: 1px solid #fcd9a6; color: #7a3b05; }
+    .callout strong { display: block; margin-bottom: 2px; }
+
+    .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: .84rem; margin: 0; }
+    .kv dt { color: var(--muted); }
+    .kv dd { margin: 0; font-weight: 600; }
+
+    footer { margin-top: 18px; font-size: .75rem; color: var(--muted); text-align: center; }
+
+    @media print {
+      body { background: #fff; }
+      .page { padding: 10px 0 0; max-width: none; }
+      .card { box-shadow: none; }
+      @page { size: letter; margin: .5in; }
+    }
+    @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } header { flex-direction: column; align-items: flex-start; } .url { text-align: left; } }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="brand">
+      <img src="app/public/logo-text.png" alt="IPELRA" onerror="this.style.display='none'" />
+      <div>
+        <h1>Conference Passport — Virtual Demo Checklist</h1>
+        <p>40-person staff dry run · one page · you drive, they play along on their phones</p>
+      </div>
+    </div>
+    <div class="url">
+      Attendee site
+      <strong>gentle-flower-01d10d50f.7.azurestaticapps.net</strong>
+      Admin: <span style="font-family:Consolas,Menlo,monospace">…/admin</span>
+    </div>
+  </header>
+
+  <div class="grid">
+
+    <!-- 1 BEFORE -->
+    <section class="card">
+      <h2><span class="n">1</span> Before you go live <span class="tag">T-10 min</span></h2>
+      <ul class="check">
+        <li>Open the attendee site once yourself <em>(warms the server — kills the cold-start pause)</em></li>
+        <li>Deactivate the <strong>“test”</strong> sponsor <em>(Admin → Sponsors → toggle Off)</em></li>
+        <li>Log in on <strong>your phone</strong> as a known-good example</li>
+        <li>Tab A: the <strong>QR code / link</strong> to share</li>
+        <li>Tab B: <strong>Admin → Dashboard</strong> <em>(your live scoreboard)</em></li>
+        <li>Mute notifications on the machine you’re sharing</li>
+      </ul>
+    </section>
+
+    <!-- 2 OPEN -->
+    <section class="card">
+      <h2><span class="n">2</span> Opening <span class="tag">60 sec</span></h2>
+      <ul class="check">
+        <li>What it is
+          <span class="say">“A game to get attendees to actually <b>talk</b> to our sponsors — not walk past them.”</span></li>
+        <li>How it works
+          <span class="say">“Collect a stamp at each table by answering a question only their rep can tell you. Fill your passport → you’re in the prize drawing.”</span></li>
+        <li>Their job
+          <span class="say">“You’re about to do exactly what 160 attendees will do in October. Scan the code and follow along.”</span></li>
+      </ul>
+    </section>
+
+    <!-- 3 WALKTHROUGH -->
+    <section class="card span2">
+      <h2><span class="n">3</span> Live walkthrough — everyone does it with you <span class="tag">6–8 min</span></h2>
+      <ul class="check">
+        <li><strong>Scan / tap the link</strong> → name + email. <em>“This is your identity for the whole conference.”</em></li>
+        <li><strong>Check email, tap the link.</strong>
+          <span class="say">“Came through in seconds, from a real address, with our logo — that’s deliberate.”</span></li>
+        <li><strong>3-card intro</strong> <em>(first-timers only)</em> — what it is · how stops work · how you win</li>
+        <li><strong>Passport home</strong> — points bar, rank badge, “Next Stop.” <em>“Their home base all week.”</em></li>
+        <li><strong>Tap a sponsor → get the answer WRONG on purpose.</strong>
+          <span class="say">“Watch — it doesn’t lock me out. It nudges me to go talk to the rep. That’s the whole point.”</span></li>
+        <li><strong>Answer right</strong> → stamp + points animation</li>
+        <li><strong>Complete several</strong> → completion celebration → “you’re in the drawing”</li>
+      </ul>
+    </section>
+
+    <!-- 4 WOW -->
+    <section class="card">
+      <h2><span class="n">4</span> The closer — flip to Dashboard <span class="tag">2 min</span></h2>
+      <ul class="check">
+        <li><span class="say">“Everything you just did is showing up here <b>live</b> — this is what staff see day-of.”</span></li>
+        <li>Point at: <strong>Registered</strong> climbing · <strong>Check-ins today</strong> · <strong>Live feed</strong> with their names</li>
+        <li><strong>Sponsor tables</strong> — which are hot, which show “No visits”</li>
+        <li><strong>Almost there</strong> — people one stop from finishing</li>
+        <li>Export tab: <span class="say">“At the end I click one button and get the prize-drawing list.”</span></li>
+      </ul>
+    </section>
+
+    <!-- 5 IF -->
+    <section class="card">
+      <h2><span class="n">5</span> If something hiccups</h2>
+      <ul class="check">
+        <li><strong>A few emails lag 30–60 s</strong>
+          <span class="say">“40 of you hit send in the same minute — it paces them. Every link still works. Real attendees trickle in.”</span></li>
+        <li><strong>“I didn’t get it”</strong> → check spam once, then move on. <em>Don’t chase one person live.</em></li>
+        <li><strong>Red “couldn’t send” message</strong> → that’s the app being honest, not silent. Note the name; check after.</li>
+        <li><strong>Wrong-answer confusion</strong> → point to the “go ask at the table” nudge. It’s intended.</li>
+      </ul>
+    </section>
+
+    <!-- 6 CLOSE -->
+    <section class="card">
+      <h2><span class="n">6</span> Close — ask for what you need <span class="tag">1 min</span></h2>
+      <ul class="check">
+        <li><span class="say">“Two things: <b>was the flow obvious?</b> and <b>did the sponsor questions make sense?</b>”</span></li>
+        <li><span class="say">“Drop any confusion in the chat — that’s what makes October smooth.”</span></li>
+        <li>Thank them; tell them their passports stay live so they can poke around after</li>
+      </ul>
+    </section>
+
+    <!-- 7 FACTS -->
+    <section class="card">
+      <h2><span class="n">7</span> Quick facts if asked</h2>
+      <dl class="kv">
+        <dt>Attempts</dt><dd>Unlimited · hint after 3 misses</dd>
+        <dt>Points</dt><dd>100 partnership · 150 leadership</dd>
+        <dt>Complete at</dt><dd>1,000 pts</dd>
+        <dt>Email from</dt><dd>“IPELRA Conference Passport”</dd>
+        <dt>Link expires</dt><dd>15 min · any recent link works</dd>
+        <dt>Capacity</dt><dd>30 emails/min · 10k/day</dd>
+      </dl>
+    </section>
+
+    <!-- callouts -->
+    <div class="span2" style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+      <div class="callout ok">
+        <strong>Optional: perfectly smooth emails</strong>
+        Tell them to scan in two waves — “left side of your name list now, right side in 30 seconds.” Keeps everyone under the per-minute pace. Not required.
+      </div>
+      <div class="callout warn">
+        <strong>After the demo</strong>
+        Dashboard → any red “Needs attention” rows · Export → System status green · note who said “didn’t get email” and check App Insights.
+      </div>
+    </div>
+
+  </div>
+
+  <footer>IPELRA Conference Passport 2026 · Staff dry run · Print or keep on a second screen</footer>
+</div>
+</body>
+</html>

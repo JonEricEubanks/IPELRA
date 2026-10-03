@@ -9,39 +9,14 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import { adminGetSponsors, adminUpdateSponsor, adminCreateSponsor, adminGetSponsorWrongAnswers } from '../api';
 import { findPlaceholderIssues } from '../lib/sponsorContent';
+import { matchAnswer } from '../lib/answerMatch';
 import { AlertTriangle, MessageSquareWarning, CheckCircle2 } from 'lucide-react';
 
-// ── Client-side fuzzy match (mirrors api/src/lib/fuzzyMatch.js exactly) ─────
-function normalize(s) {
-  return s.toLowerCase().trim().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ');
-}
-function levenshtein(a, b) {
-  const m = a.length, n = b.length;
-  const dp = Array.from({ length: m + 1 }, (_, i) =>
-    Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
-  );
-  for (let i = 1; i <= m; i++)
-    for (let j = 1; j <= n; j++)
-      dp[i][j] = a[i - 1] === b[j - 1]
-        ? dp[i - 1][j - 1]
-        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
-  return dp[m][n];
-}
+// Same matcher the API uses to award points (lib/answerMatch.js mirrors api/src/lib/fuzzyMatch.js)
 function testFuzzy(answer, keyword) {
   if (!keyword.trim()) return null;
-  const a = normalize(answer);
-  const k = normalize(keyword);
-  if (!a) return { pass: false, dist: Infinity, maxDist: 0 };
-  if (a.includes(k)) return { pass: true, method: 'keyword found in answer' };
-  const dist = levenshtein(a, k);
-  const maxDist = Math.ceil(k.length * 0.3);
-  if (k.length >= 4 && dist <= maxDist) return { pass: true, method: `close match (distance ${dist} ≤ ${maxDist})` };
-  const kTokens = k.split(' ').filter(Boolean);
-  if (kTokens.length > 1) {
-    const aTokens = new Set(a.split(' ').filter(Boolean));
-    if (kTokens.every(t => aTokens.has(t))) return { pass: true, method: 'every keyword word appears in answer' };
-  }
-  return { pass: false, dist, maxDist };
+  const r = matchAnswer(keyword, answer);
+  return r.pass ? { pass: true, method: `${r.method} (“${r.matched}”)` } : { pass: false };
 }
 
 const TIER_POINTS = { partnership: 100, leadership: 150 };
@@ -319,11 +294,11 @@ export default function AdminSponsorEditPage() {
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="sp-keyword">Answer keyword (for fuzzy match) *</label>
+            <label className="form-label" htmlFor="sp-keyword">Accepted answers (separate with |) *</label>
             <input
               id="sp-keyword"
               className="form-input"
-              placeholder="e.g. municipal technology"
+              placeholder="e.g. Acme Cloud | Cloud Services | Acme"
               value={form.promptAnswerKeyword}
               onChange={e => set('promptAnswerKeyword', e.target.value)}
               required
@@ -331,8 +306,9 @@ export default function AdminSponsorEditPage() {
               style={fieldHasIssue('promptAnswerKeyword') ? { borderColor: '#f97316', boxShadow: '0 0 0 3px rgba(249,115,22,0.18)' } : undefined}
             />
             <div className="form-hint">
-              An answer is accepted if it <strong>contains</strong> this keyword (any casing/punctuation), is a close misspelling of it,
-              or includes every word of it. Attendees can keep trying — after 3 misses they see a letter hint and are pointed to your table.
+              List every answer you&rsquo;d accept, separated by <strong>|</strong>. An answer passes if it matches <strong>any</strong> of them:
+              it contains it, is a close misspelling, or has most of its key words in any order (typos, short forms like &ldquo;gov&rdquo;, and
+              filler words like &ldquo;and/the/for&rdquo; are forgiven; numbers must be exact). After 3 misses attendees see a letter hint for the first answer.
             </div>
           </div>
 
@@ -403,7 +379,7 @@ export default function AdminSponsorEditPage() {
               <div className={`fuzzy-result fuzzy-result--${testResult.pass ? 'pass' : 'fail'}`}>
                 {testResult.pass
                   ? `✅ Would accept — ${testResult.method}`
-                  : `❌ Would reject — distance ${testResult.dist} > max ${testResult.maxDist}`}
+                  : '❌ Would reject — doesn’t match any accepted answer'}
               </div>
             )}
           </div>

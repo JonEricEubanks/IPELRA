@@ -8,21 +8,25 @@
  * 2. Query Cosmos for an attendee with a matching hash among their pending
  *    magic-link tokens (an attendee may have several outstanding tokens if
  *    they requested more than one link — e.g. a slow/batching mail server)
- * 3. Check that specific token's expiry
- * 4. Invalidate ALL pending tokens for the attendee (one successful login
- *    consumes every outstanding link, not just the one that was clicked)
+ * 3. Check that specific token's expiry and open count
+ * 4. Keep ONLY the clicked token (usable until it expires, max MAX_LINK_USES
+ *    opens) and drop the other pending links. Email security scanners often
+ *    open links before the attendee does, so a strictly single-use link would
+ *    already be spent by the time the real person taps it.
  * 5. Issue a signed session JWT
  * 6. Return the JWT + attendee profile
  *
  * Returns 200: { token, attendee: { id, email, firstName, lastName, totalPoints, isComplete } }
  * Returns 400: missing token parameter
- * Returns 401: token not found, already used, or expired
+ * Returns 401: token not found, used too many times, or expired
  */
 
 import { app } from '@azure/functions';
 import { hashToken, signAttendeeToken } from '../lib/auth.js';
-import { attendees as attendeesContainer, upsertAttendee } from '../lib/cosmos.js';
+import { attendees as attendeesContainer, patchAttendee } from '../lib/cosmos.js';
 import { jsonResponse as json } from '../lib/http.js';
+
+const MAX_LINK_USES = 15;
 
 async function findAttendeeByTokenHash(hash) {
   const { resources } = await attendeesContainer().items
@@ -58,14 +62,12 @@ app.http('verifyToken', {
     if (!matched || !matched.expiry || new Date(matched.expiry) < new Date()) {
       return json(401, { error: 'This link has expired. Please request a new one.' });
     }
+    const uses = Number(matched.uses ?? 0);
+    if (uses >= MAX_LINK_USES) {
+      return json(401, { error: 'This link has already been used. Please request a new one.' });
+    }
 
-    // Invalidate ALL pending tokens — a successful login consumes every
-    // outstanding magic link so a stale copy can't be reused afterward.
-    const updated = {
-      ...attendee,
-      magicLinkTokens: [],
-    };
-    await upsertAttendee(updated);
+    await patchAttendee(attendee.id, attendee.email, { magicLinkTokens: [{ ...matched, uses: uses + 1 }] });
 
     // Issue session JWT
     const sessionToken = signAttendeeToken(attendee.id, attendee.email);

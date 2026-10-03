@@ -29,11 +29,11 @@ test('hashToken: different inputs hash differently', () => {
   assert.notEqual(hashToken('abc'), hashToken('abd'));
 });
 
-test('generateMagicToken: returns a raw token, its hash, and a ~15 min expiry', () => {
+test('generateMagicToken: returns a raw token, its hash, and a ~60 min expiry', () => {
   const { rawToken, tokenHash, expiry } = generateMagicToken();
   assert.equal(tokenHash, hashToken(rawToken));
   const minutesFromNow = (new Date(expiry).getTime() - Date.now()) / 60000;
-  assert.ok(minutesFromNow > 14 && minutesFromNow <= 15, `expected ~15 min, got ${minutesFromNow}`);
+  assert.ok(minutesFromNow > 59 && minutesFromNow <= 60, `expected ~60 min, got ${minutesFromNow}`);
 });
 
 test('signAttendeeToken/verifyAttendeeToken: round-trips attendee id and email', () => {

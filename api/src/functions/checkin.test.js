@@ -35,6 +35,7 @@ mock.module(import.meta.resolve('../lib/cosmos.js'), {
       return doc;
     },
     async replaceAttendee(doc) {
+      if (db.failReplaceWith) throw db.failReplaceWith;
       db.attendee = { ...doc, _etag: 'etag-next' };
       return db.attendee;
     },
@@ -43,7 +44,10 @@ mock.module(import.meta.resolve('../lib/cosmos.js'), {
 
 mock.module(import.meta.resolve('../lib/email.js'), {
   namedExports: {
-    async sendCompletionEmail(email) { db.emails.push(email); },
+    async sendCompletionEmail(email) {
+      if (db.emailFailWith) throw db.emailFailWith;
+      db.emails.push(email);
+    },
   },
 });
 
@@ -74,6 +78,8 @@ beforeEach(() => {
   };
   db.checkins = [];
   db.failNextUpsertCheckinWith = null;
+  db.failReplaceWith = null;
+  db.emailFailWith = null;
   db.emails = [];
 });
 
@@ -181,4 +187,52 @@ test('checkin: a unique-key 409 from Cosmos becomes a friendly HTTP 409', async 
   assert.equal(status, 409);
   assert.match(body.error, /already completed/);
   assert.equal(db.attendee.totalPoints, 0, 'attendee must not be credited');
+});
+
+// ── Stuck check-in repair ────────────────────────────────────────────────────────────────────────────
+test('checkin: if crediting fails after the answer is saved, the attendee gets a retry message (503), and resubmitting repairs it', async () => {
+  db.failReplaceWith = new Error('Cosmos unavailable');
+  let r = await readJson(await post({ sponsorId: 'sp1', answer: 'retirement' }));
+  assert.equal(r.status, 503);
+  assert.match(r.body.error, /tap submit again/);
+  assert.equal(db.checkins.length, 1, 'answer was recorded');
+  assert.equal(db.attendee.totalPoints, 0);
+
+  db.failReplaceWith = null;
+  r = await readJson(await post({ sponsorId: 'sp1', answer: 'anything' }));
+  assert.equal(r.status, 200, 'not stuck behind "already completed"');
+  assert.strictEqual(r.body.totalPoints, 100);
+  assert.deepEqual(db.attendee.completedStamps, ['sp1']);
+  assert.equal(db.checkins.length, 1, 'no second checkin doc');
+});
+
+test('checkin: completion email is awaited before responding', async () => {
+  db.attendee.totalPoints = 250;
+  await post({ sponsorId: 'sp1', answer: 'retirement' });
+  assert.deepEqual(db.emails, ['a@example.com']);
+});
+
+test('checkin: a failing completion email never breaks the unlock', async () => {
+  db.attendee.totalPoints = 250;
+  db.emailFailWith = new Error('Graph down');
+  const { status, body } = await readJson(await post({ sponsorId: 'sp1', answer: 'retirement' }));
+  assert.equal(status, 200);
+  assert.equal(body.isComplete, true);
+});
+
+test('checkin: repair path does not resend points for a sponsor already stamped', async () => {
+  db.checkins = [{ id: 'c1', attendeeId: 'a1', sponsorId: 'sp1', pointsAwarded: 100, failed: false }];
+  db.attendee.completedStamps = ['sp1'];
+  db.attendee.totalPoints = 100;
+  const { status } = await readJson(await post({ sponsorId: 'sp1', answer: 'retirement' }));
+  assert.equal(status, 409);
+  assert.equal(db.attendee.totalPoints, 100);
+});
+
+test('checkin: repair uses the points recorded on the original answer, not a re-answer', async () => {
+  db.checkins = [{ id: 'c1', attendeeId: 'a1', sponsorId: 'sp1', pointsAwarded: 150, failed: false }];
+  const { status, body } = await readJson(await post({ sponsorId: 'sp1', answer: 'totally wrong' }));
+  assert.equal(status, 200);
+  assert.strictEqual(body.pointsAwarded, 150);
+  assert.strictEqual(db.attendee.totalPoints, 150);
 });

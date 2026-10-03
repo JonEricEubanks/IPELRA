@@ -14,13 +14,29 @@
  */
 
 import { app } from '@azure/functions';
-import { v4 as uuidv4 } from 'uuid';
+import { v5 as uuidv5 } from 'uuid';
 import { generateMagicToken } from '../lib/auth.js';
 import { safeNextPath } from '../lib/redirect.js';
-import { getAttendeeByEmail, upsertAttendee } from '../lib/cosmos.js';
+import { getAttendeeByEmail, createAttendee, patchAttendee } from '../lib/cosmos.js';
 import { sendMagicLinkEmail } from '../lib/email.js';
 import { isAllowed } from '../lib/rateLimit.js';
 import { jsonResponse as json } from '../lib/http.js';
+
+// Fixed namespace so a new attendee's id is derived from their email: two
+// simultaneous first-time requests collide on create instead of making duplicates.
+const ATTENDEE_ID_NAMESPACE = '6f1c2a0e-5d3b-4f7a-9c21-8e4b2d7a1f60';
+
+// Generous because everyone on the venue Wi-Fi shares one public IP; this only
+// stops a single source from flooding the mailboxes with links.
+const IP_LIMIT = { windowMs: 10 * 60 * 1000, maxAttempts: 300 };
+
+function clientIp(request) {
+  const first = (request.headers.get('x-forwarded-for') ?? '').split(',')[0].trim();
+  if (!first) return null;
+  if (first.startsWith('[')) return first.slice(1, first.indexOf(']'));
+  // Strip an IPv4 ":port" suffix (IPv6 without brackets has several colons)
+  return first.split(':').length === 2 ? first.split(':')[0] : first;
+}
 
 // Simple email format check — not exhaustive; just prevents obvious garbage
 function isValidEmail(email) {
@@ -63,8 +79,12 @@ app.http('sendMagicLink', {
       return json(400, { error: 'Invalid last name' });
     }
 
-    // ── Rate limit (per email) ────────────────────────────────────────────
+    // ── Rate limit (per email, then per source IP) ────────────────────────
     if (!isAllowed(`sendMagicLink:${email}`)) {
+      return json(429, { error: 'Too many requests. Please wait a few minutes and try again.' });
+    }
+    const ip = clientIp(request);
+    if (ip && !isAllowed(`sendMagicLink-ip:${ip}`, IP_LIMIT)) {
       return json(429, { error: 'Too many requests. Please wait a few minutes and try again.' });
     }
 
@@ -72,8 +92,9 @@ app.http('sendMagicLink', {
     const { rawToken, tokenHash, expiry } = generateMagicToken();
 
     // ── Upsert attendee record ────────────────────────────────────────────
-    const existing = await getAttendeeByEmail(email);
+    let existing = await getAttendeeByEmail(email);
     const now = new Date().toISOString();
+    const conferenceYear = Number(process.env.CONFERENCE_YEAR ?? '2026');
 
     // Some corporate mail servers delay/batch delivery, so an attendee may
     // request several links before an earlier one arrives. Keep any
@@ -82,26 +103,45 @@ app.http('sendMagicLink', {
     // rest as soon as one is used. Cap the list so repeated requests can't
     // grow it unbounded.
     const MAX_PENDING_MAGIC_LINKS = 5;
-    const pendingTokens = (existing?.magicLinkTokens ?? [])
-      .filter(t => t?.hash && t?.expiry && new Date(t.expiry) > new Date())
-      .slice(-(MAX_PENDING_MAGIC_LINKS - 1));
-    pendingTokens.push({ hash: tokenHash, expiry });
-
-    const attendee = {
-      id:                   existing?.id ?? uuidv4(),
-      email,
-      firstName:            firstName ?? existing?.firstName ?? null,
-      lastName:             lastName  ?? existing?.lastName  ?? null,
-      magicLinkTokens:      pendingTokens,
-      totalPoints:          existing?.totalPoints          ?? 0,
-      completedStamps:      existing?.completedStamps      ?? [],
-      isComplete:           existing?.isComplete           ?? false,
-      completedAt:          existing?.completedAt          ?? null,
-      createdAt:            existing?.createdAt            ?? now,
-      conferenceYear:       Number(process.env.CONFERENCE_YEAR ?? '2026'),
+    const pendingFor = (doc) => {
+      const kept = (doc?.magicLinkTokens ?? [])
+        .filter(t => t?.hash && t?.expiry && new Date(t.expiry) > new Date())
+        .slice(-(MAX_PENDING_MAGIC_LINKS - 1));
+      return [...kept, { hash: tokenHash, expiry }];
     };
 
-    await upsertAttendee(attendee);
+    if (!existing) {
+      try {
+        await createAttendee({
+          id:              uuidv5(email, ATTENDEE_ID_NAMESPACE),
+          email,
+          firstName,
+          lastName,
+          magicLinkTokens: pendingFor(null),
+          totalPoints:     0,
+          completedStamps: [],
+          isComplete:      false,
+          completedAt:     null,
+          createdAt:       now,
+          conferenceYear,
+        });
+      } catch (err) {
+        if (err.code !== 409) throw err;
+        // A simultaneous request created this attendee first
+        existing = await getAttendeeByEmail(email);
+        if (!existing) throw err;
+      }
+    }
+
+    // Only touch login fields — never points/stamps, which a check-in may be writing right now
+    if (existing) {
+      await patchAttendee(existing.id, email, {
+        magicLinkTokens: pendingFor(existing),
+        conferenceYear,
+        ...(firstName ? { firstName } : {}),
+        ...(lastName  ? { lastName }  : {}),
+      });
+    }
 
     // ── Send magic link email ─────────────────────────────────────────────
     // Awaited on purpose. If every configured provider fails, the attendee

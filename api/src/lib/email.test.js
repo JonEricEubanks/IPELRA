@@ -23,7 +23,7 @@ const GRAPH_ENV = {
 const ACS_ENV = { ACS_CONNECTION_STRING: 'endpoint=x;accesskey=y', ACS_SENDER_ADDRESS: 'donotreply@abc.azurecomm.net' };
 
 const realFetch = globalThis.fetch;
-const graph = { calls: [], sendStatus: 202, tokenStatus: 200 };
+const graph = { calls: [], sendStatus: 202, tokenStatus: 200, failSenders: new Set() };
 
 function fakeFetch(url, init) {
   const u = String(url);
@@ -32,8 +32,10 @@ function fakeFetch(url, init) {
     return new Response(JSON.stringify(graph.tokenStatus === 200 ? { access_token: 'tok', expires_in: 3600 } : { error: 'invalid_client' }), { status: graph.tokenStatus });
   }
   if (u.includes('/sendMail')) {
-    graph.calls.push({ kind: 'send', url: u, body: JSON.parse(init.body), auth: init.headers.Authorization });
-    return new Response(graph.sendStatus === 202 ? null : '{"error":"boom"}', { status: graph.sendStatus, headers: { 'request-id': 'req-1' } });
+    const body = JSON.parse(init.body);
+    graph.calls.push({ kind: 'send', url: u, body, auth: init.headers.Authorization });
+    const status = graph.failSenders.has(body.message.from.emailAddress.address) ? 429 : graph.sendStatus;
+    return new Response(status === 202 ? null : '{"error":"boom"}', { status, headers: { 'request-id': 'req-1' } });
   }
   throw new Error('unexpected fetch ' + u);
 }
@@ -45,7 +47,7 @@ function setEnv(vars) {
 
 beforeEach(() => {
   acs.sends = []; acs.failNext = false;
-  graph.calls = []; graph.sendStatus = 202; graph.tokenStatus = 200;
+  graph.calls = []; graph.sendStatus = 202; graph.tokenStatus = 200; graph.failSenders = new Set();
   globalThis.fetch = fakeFetch;
   email._resetForTests();
 });
@@ -86,12 +88,9 @@ test('graph: sends as the configured mailbox with the display name, reusing the 
   assert.deepEqual(m.toRecipients, [{ emailAddress: { address: 'ann@x.com' } }]);
   assert.equal(m.body.contentType, 'HTML');
   assert.match(m.body.content, /verify\?token=raw-token/);
-  assert.match(m.body.content, /<img src="cid:ipelra-logo"/, 'logo referenced by cid so Outlook renders it');
-  assert.equal(m.attachments.length, 1);
-  assert.equal(m.attachments[0]['@odata.type'], '#microsoft.graph.fileAttachment');
-  assert.equal(m.attachments[0].contentId, 'ipelra-logo');
-  assert.equal(m.attachments[0].isInline, true);
-  assert.ok(m.attachments[0].contentBytes.length > 1000, 'logo bytes embedded');
+  assert.match(m.body.content, /<img src="https:\/\/res\.cloudinary\.com\/[^"]+\/f_png\/[^"]+IPELRA-Logo\.png" alt="IPELRA"/, 'hosted PNG logo');
+  assert.match(m.body.content, /IPELRA Annual Conference 2026 &middot; Conference Passport/, 'text band shows even when images are blocked');
+  assert.deepEqual(m.attachments, [], 'no attachments \u2014 they trigger ~5 min Safe Attachments holds');
   assert.equal(sendCalls[0].body.saveToSentItems, false);
   assert.equal(acs.sends.length, 0, 'ACS not touched');
 });
@@ -112,11 +111,66 @@ test('all providers failing throws the last error so the caller can tell the use
   await assert.rejects(() => email.sendMagicLinkEmail('ann@x.com', 'raw', null, null), /ACS down/);
 });
 
+test('parseSenders: splits comma/semicolon/space lists and drops blanks + duplicates', () => {
+  assert.deepEqual(email.parseSenders('a@x.com, b@x.com;c@x.com  a@x.com,'), ['a@x.com', 'b@x.com', 'c@x.com']);
+  assert.deepEqual(email.parseSenders(''), []);
+  assert.deepEqual(email.parseSenders(undefined), []);
+});
+
+test('graph multi-mailbox: rotates the sender across mailboxes', async () => {
+  setEnv({ EMAIL_PROVIDER: 'graph', ...GRAPH_ENV, GRAPH_SENDER_ADDRESS: 'p0@x.com,p1@x.com,p2@x.com' });
+  for (let i = 0; i < 4; i++) await email.sendMagicLinkEmail(`u${i}@x.com`, 'raw', null, null);
+  const froms = graph.calls.filter(c => c.kind === 'send').map(c => c.body.message.from.emailAddress.address);
+  assert.deepEqual(froms, ['p0@x.com', 'p1@x.com', 'p2@x.com', 'p0@x.com']);
+});
+
+test('graph multi-mailbox: a throttled mailbox fails over to the next before trying ACS', async () => {
+  setEnv({ EMAIL_PROVIDER: 'graph', ...GRAPH_ENV, ...ACS_ENV, GRAPH_SENDER_ADDRESS: 'p0@x.com,p1@x.com' });
+  graph.failSenders = new Set(['p0@x.com']);
+  const id = await email.sendMagicLinkEmail('ann@x.com', 'raw', null, null);
+  assert.match(id, /^graph:/);
+  const sends = graph.calls.filter(c => c.kind === 'send');
+  assert.equal(sends.length, 2);
+  assert.equal(sends[1].body.message.from.emailAddress.address, 'p1@x.com');
+  assert.equal(acs.sends.length, 0);
+});
+
+test('graph multi-mailbox: when every mailbox fails, ACS is the last resort', async () => {
+  setEnv({ EMAIL_PROVIDER: 'graph', ...GRAPH_ENV, ...ACS_ENV, GRAPH_SENDER_ADDRESS: 'p0@x.com,p1@x.com,p2@x.com' });
+  graph.failSenders = new Set(['p0@x.com', 'p1@x.com', 'p2@x.com']);
+  const id = await email.sendMagicLinkEmail('ann@x.com', 'raw', null, null);
+  assert.match(id, /^acs:/);
+  assert.equal(graph.calls.filter(c => c.kind === 'send').length, 3, 'each mailbox tried once');
+  assert.equal(graph.calls.filter(c => c.kind === 'token').length, 1, 'one token shared by all mailboxes');
+});
+
+test('graph multi-mailbox: rotation keeps going past a failed mailbox (load stays spread)', async () => {
+  setEnv({ EMAIL_PROVIDER: 'graph', ...GRAPH_ENV, GRAPH_SENDER_ADDRESS: 'p0@x.com,p1@x.com,p2@x.com' });
+  graph.failSenders = new Set(['p1@x.com']);
+  const used = [];
+  for (let i = 0; i < 3; i++) {
+    graph.calls = [];
+    await email.sendMagicLinkEmail(`u${i}@x.com`, 'raw', null, null);
+    const ok = graph.calls.filter(c => c.kind === 'send').pop();
+    used.push(ok.body.message.from.emailAddress.address);
+  }
+  assert.deepEqual(used, ['p0@x.com', 'p2@x.com', 'p2@x.com']);
+});
+
 test('acs only: sends via ACS and never calls Graph', async () => {
   setEnv({ EMAIL_PROVIDER: 'acs', ...ACS_ENV });
   const id = await email.sendAdminMagicLinkEmail('admin@x.com', 'https://app/admin/verify?token=t');
   assert.equal(id, 'acs:acs-123');
   assert.equal(graph.calls.length, 0);
   assert.equal(acs.sends[0].content.subject, 'IPELRA Admin Login Link');
-  assert.equal(acs.sends[0].attachments[0].contentId, 'ipelra-logo', 'ACS path embeds the logo too');
+  assert.deepEqual(acs.sends[0].attachments, [], 'ACS path sends no attachments either');
+  assert.match(acs.sends[0].content.html, /IPELRA Annual Conference 2026 &middot; Admin Portal/);
+});
+
+test('EMAIL_LOGO_URL overrides the logo without a redeploy', async () => {
+  setEnv({ EMAIL_PROVIDER: 'graph', ...GRAPH_ENV, EMAIL_LOGO_URL: 'https://example.org/logo.png' });
+  await email.sendCompletionEmail('ann@x.com', 'Ann', '2026-10-05T16:00:00Z');
+  const m = graph.calls.find(c => c.kind === 'send').body.message;
+  assert.match(m.body.content, /<img src="https:\/\/example\.org\/logo\.png"/);
+  delete process.env.EMAIL_LOGO_URL;
 });

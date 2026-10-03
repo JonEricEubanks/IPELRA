@@ -13,6 +13,7 @@ import { app } from '@azure/functions';
 import { requireAdminAuth, forbiddenResponse } from '../lib/auth.js';
 import { getAllSponsors, getAllAttendees } from '../lib/cosmos.js';
 import { findPlaceholderIssues } from '../lib/sponsorContent.js';
+import { parseSenders } from '../lib/email.js';
 import { jsonResponse as json } from '../lib/http.js';
 
 app.http('adminReadiness', {
@@ -62,8 +63,9 @@ app.http('adminReadiness', {
     const acsIsTestDomain = /\.azurecomm\.net$/i.test(acsSender);
     let emailStatus, emailDetail;
     if (provider === 'graph' && graphOk) {
+      const senders = parseSenders(process.env.GRAPH_SENDER_ADDRESS);
       emailStatus = 'ok';
-      emailDetail = `Microsoft Graph, sending as ${process.env.GRAPH_SENDER_ADDRESS}${acsOk ? ' (ACS fallback configured)' : ''}`;
+      emailDetail = `Microsoft Graph, rotating across ${senders.length} mailbox${senders.length === 1 ? '' : 'es'} (${senders.join(', ')})${acsOk ? ' (ACS fallback configured)' : ''}`;
     } else if (provider === 'graph') {
       emailStatus = 'error';
       emailDetail = 'EMAIL_PROVIDER=graph but GRAPH_* settings are incomplete';
