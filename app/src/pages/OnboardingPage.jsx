@@ -12,7 +12,7 @@ const CARDS = [
   {
     Icon: Map,
     title: 'Welcome to the Passport',
-    body: 'Visit each sponsor table, answer their question, and collect stamps. Complete all stops to enter the prize drawing!',
+    body: 'Visit sponsor tables, answer their question, and collect stamps. Earn enough points to complete your passport and enter the raffle drawing!',
     cta: 'Next',
     color: '#1d3461',
   },

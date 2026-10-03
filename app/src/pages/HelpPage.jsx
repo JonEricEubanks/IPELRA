@@ -17,7 +17,7 @@ const FAQ = [
   {
     icon: Users,
     q: 'Do I have to visit every sponsor?',
-    a: 'Yes — completing your passport means earning points at every sponsor stop. Finish by Wednesday at 11:45 a.m. to be entered in the raffle drawing.',
+    a: 'No — earn enough points to complete your passport and you\'re entered in the raffle drawing. Keep visiting sponsors: every stop gets you closer! Finish by Wednesday at 11:45 a.m.',
   },
   {
     icon: MessageSquare,
